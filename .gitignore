@@ -1,0 +1,32 @@
+# 本地配置与密钥
+.env
+.env.*
+!.env.example
+
+# macOS
+.DS_Store
+
+# Go
+coverage.out
+*.test
+*.out
+
+# 构建产物
+bin/
+dist/
+
+# 前端依赖(如有)
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+
+# Waveloom(本地配置/日志/会话)
+.waveloom/
+
+# Claude Code(本地命令与 skills)
+.claude/
+
+# OpenSpec(本地变更提案与 specs,不入仓库)
+openspec/
