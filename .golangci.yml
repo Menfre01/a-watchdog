@@ -1,0 +1,38 @@
+# golangci-lint 配置(基线见 AGENTS.md「编码规范 / Go 约定」)。
+# 适用于 golangci-lint v2.x。
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - copyloopvar
+    - errcheck
+    - errname
+    - gosec
+    - govet
+    - ineffassign
+    - noctx
+    - staticcheck
+    - unconvert
+    - unused
+  exclusions:
+    generated: lax
+    presets:
+      - std-error-handling
+      - common-false-positives
+    rules:
+      # 测试文件中的假凭据(如 "sk-ant-up")不构成真实凭据泄露风险。
+      - path: _test\.go
+        linters:
+          - gosec
+        text: "G101"
+      # 测试文件构造的请求侧 cookie(AddCookie)不涉及响应头的 Secure/HttpOnly 下发面。
+      - path: _test\.go
+        linters:
+          - gosec
+        text: "G124"
+
+formatters:
+  enable:
+    - gofmt
+    - goimports

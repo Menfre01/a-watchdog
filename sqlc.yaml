@@ -1,0 +1,13 @@
+# sqlc 配置(SQL-first 代码生成,见 design.md D4/D9)。
+# 生成产物入库:make generate 重新生成;make lint 以 sqlc diff 防漂移;勿手改生成代码。
+version: "2"
+sql:
+  - engine: "sqlite"
+    schema: "pkg/config/migrations"
+    queries: "pkg/config/queries"
+    gen:
+      go:
+        package: "db"
+        out: "pkg/config/db"
+        emit_pointers_for_null_types: true
+        emit_empty_slices: true
