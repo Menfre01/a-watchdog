@@ -6,9 +6,11 @@ GOFMT     ?= gofmt
 GOLANGCI  ?= golangci-lint
 SQLC      ?= sqlc
 ARGS      ?=
+STE_FILES ?=
+STE_BASELINE ?= 0
 BINARY    := bin/ds-context
 
-.PHONY: generate build run test lint clean
+.PHONY: generate build run test lint lint-text clean
 
 # generate: 以 sqlc 从迁移与查询 SQL 生成类型安全代码(生成产物入库,勿手改)
 generate:
@@ -47,3 +49,12 @@ lint:
 # clean: 清理构建产物
 clean:
 	rm -rf bin
+
+# lint-text: 文字规范机械首查(默认扫 openspec 与 docs,STE_FILES 限定文件,STE_BASELINE 容忍存量)
+# 脚本源自 lemonhall/asd-ste100-skill-zh(MIT,许可文本见 scripts/ste-lint-zh.LICENSE.txt)
+lint-text:
+	@command -v python3 >/dev/null || { echo "lint-text: 未找到 python3"; exit 1; }
+	@files="$(STE_FILES)"; \
+	if [ -z "$$files" ]; then files="$$(find openspec docs -name '*.md' -type f 2>/dev/null | sort)"; fi; \
+	if [ -z "$$files" ]; then echo "lint-text: 没有待检查的文档"; exit 0; fi; \
+	python3 scripts/ste-lint-zh.py --baseline $(STE_BASELINE) $$files

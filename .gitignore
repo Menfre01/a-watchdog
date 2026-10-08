@@ -26,6 +26,10 @@ node_modules/
 # pnpm 本地包缓存(可能落在仓库根,约数十 MB)
 .pnpm-store/
 
+# Python(scripts/ 辅助脚本的字节码缓存)
+__pycache__/
+*.pyc
+
 # 运行时数据文件(SQLite;--data-dir 指到仓库内时产生)
 *.db
 *.db-wal
