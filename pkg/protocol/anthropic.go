@@ -33,7 +33,11 @@ func (anthropicAdapter) BuildUpstream(ctx context.Context, in UpstreamInput) (*h
 	if err != nil {
 		return nil, err
 	}
-	// 开放列表:与协议能力相关的头原样转发;凭据头绝不透传。
+	// 头转发:与协议能力相关的头原样转发,凭据头绝不透传。
+	// 现状是精确名字白名单(仅覆盖已知的 anthropic-version / anthropic-beta),Anthropic
+	// 新增 anthropic-* 头且客户端使用后会被静默丢弃——与 protocol-routing spec 场景「按
+	// 开放列表原样转发」存在潜在偏离;2026-09-26 评审决定暂不改实现,出现真实需求时改为
+	// Anthropic-* 前缀复制。
 	copyWhitelisted(req.Header, in.Header, "Content-Type", "Accept", "Anthropic-Version", "Anthropic-Beta")
 	if req.Header.Get("Content-Type") == "" {
 		req.Header.Set("Content-Type", "application/json")

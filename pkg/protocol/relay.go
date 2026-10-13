@@ -15,6 +15,33 @@ type Usage struct {
 	In    *int64
 	Out   *int64
 	Cache *int64
+
+	// cacheRead / cacheCreation 是 Cache 的内部累积分量:Anthropic 分开上报缓存读
+	// 与缓存写,两个分量可能落在不同事件里(message_start 与 message_delta)。
+	// 分量必须独立更新,否则后到的事件会把先到的分量清零。
+	cacheRead     *int64
+	cacheCreation *int64
+}
+
+// mergeCache 更新缓存分量并重算 Cache:分量为 nil 时保持原值。
+func (u *Usage) mergeCache(read, creation *int64) {
+	if read != nil {
+		u.cacheRead = read
+	}
+	if creation != nil {
+		u.cacheCreation = creation
+	}
+	if u.cacheRead == nil && u.cacheCreation == nil {
+		return
+	}
+	var total int64
+	if u.cacheRead != nil {
+		total += *u.cacheRead
+	}
+	if u.cacheCreation != nil {
+		total += *u.cacheCreation
+	}
+	u.Cache = &total
 }
 
 // usageParser 是增量解析响应字节的用量解析器(解析失败静默忽略)。
@@ -92,23 +119,69 @@ func (p *sseParser) Write(b []byte) {
 // Usage 实现 usageParser。
 func (p *sseParser) Usage() Usage { return p.usage }
 
+// cacheCreationDetail 是新版 API 的缓存写入明细:按 TTL 拆分缓存写入量。
+type cacheCreationDetail struct {
+	Ephemeral5mInputTokens *int64 `json:"ephemeral_5m_input_tokens"`
+	Ephemeral1hInputTokens *int64 `json:"ephemeral_1h_input_tokens"`
+}
+
+// total 返回明细求和;两个字段都缺失时返回 nil(此时应退回汇总数字键)。
+func (d *cacheCreationDetail) total() *int64 {
+	if d == nil || (d.Ephemeral5mInputTokens == nil && d.Ephemeral1hInputTokens == nil) {
+		return nil
+	}
+	var sum int64
+	if d.Ephemeral5mInputTokens != nil {
+		sum += *d.Ephemeral5mInputTokens
+	}
+	if d.Ephemeral1hInputTokens != nil {
+		sum += *d.Ephemeral1hInputTokens
+	}
+	return &sum
+}
+
+// UnmarshalJSON 实现 json.Unmarshaler:非对象值直接忽略。
+// 部分实现会把缓存写入量误发在 cache_creation 键下(数字而非明细对象);类型不符
+// 若向上冒泡,整个事件的解析会失败,连带丢掉同一事件里的 output_tokens 等字段。
+func (d *cacheCreationDetail) UnmarshalJSON(data []byte) error {
+	if len(data) == 0 || data[0] != '{' {
+		return nil
+	}
+	type detail cacheCreationDetail
+	var parsed detail
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		// 结构不符同样忽略:该字段缺失只影响缓存写入量,不牵连其他用量字段。
+		return nil
+	}
+	*d = cacheCreationDetail(parsed)
+	return nil
+}
+
+// anthropicUsage 是 Anthropic 事件里的 usage 负载(message_start 与 message_delta 共用)。
+type anthropicUsage struct {
+	InputTokens              *int64               `json:"input_tokens"`
+	OutputTokens             *int64               `json:"output_tokens"`
+	CacheReadInputTokens     *int64               `json:"cache_read_input_tokens"`
+	CacheCreationInputTokens *int64               `json:"cache_creation_input_tokens"`
+	CacheCreation            *cacheCreationDetail `json:"cache_creation"`
+}
+
+// cacheCreation 返回缓存写入量:明细对象优先,缺失时退回汇总数字键。
+func (a *anthropicUsage) cacheCreation() *int64 {
+	if total := a.CacheCreation.total(); total != nil {
+		return total
+	}
+	return a.CacheCreationInputTokens
+}
+
 // anthropicSSEUsage 从 Anthropic SSE 事件提取用量(message_start 的 message.usage
 // 与 message_delta 的 usage)。
 func anthropicSSEUsage(data []byte, u *Usage) {
 	var ev struct {
 		Message *struct {
-			Usage *struct {
-				InputTokens              *int64 `json:"input_tokens"`
-				OutputTokens             *int64 `json:"output_tokens"`
-				CacheReadInputTokens     *int64 `json:"cache_read_input_tokens"`
-				CacheCreationInputTokens *int64 `json:"cache_creation_input_tokens"`
-			} `json:"usage"`
+			Usage *anthropicUsage `json:"usage"`
 		} `json:"message"`
-		Usage *struct {
-			OutputTokens             *int64 `json:"output_tokens"`
-			CacheReadInputTokens     *int64 `json:"cache_read_input_tokens"`
-			CacheCreationInputTokens *int64 `json:"cache_creation_input_tokens"`
-		} `json:"usage"`
+		Usage *anthropicUsage `json:"usage"`
 	}
 	if err := json.Unmarshal(data, &ev); err != nil {
 		return
@@ -118,35 +191,17 @@ func anthropicSSEUsage(data []byte, u *Usage) {
 		if m.InputTokens != nil {
 			u.In = m.InputTokens
 		}
-		if m.OutputTokens != nil {
-			u.Out = m.OutputTokens
-		}
-		if r, c := m.CacheReadInputTokens, m.CacheCreationInputTokens; r != nil || c != nil {
-			var total int64
-			if r != nil {
-				total += *r
-			}
-			if c != nil {
-				total += *c
-			}
-			u.Cache = &total
-		}
+		// message_start 的 output_tokens 是占位值(固定为 1),不是最终输出量;
+		// 真实值只在 message_delta 出现,取占位值会把中断的流记成输出 1 token。
+		u.mergeCache(m.CacheReadInputTokens, m.cacheCreation())
 	}
 	if ev.Usage != nil {
-		if ev.Usage.OutputTokens != nil {
-			u.Out = ev.Usage.OutputTokens
+		d := ev.Usage
+		if d.OutputTokens != nil {
+			u.Out = d.OutputTokens
 		}
 		// 新版本 API 会在 message_delta 的 usage 中携带累计 cache 用量。
-		if r, c := ev.Usage.CacheReadInputTokens, ev.Usage.CacheCreationInputTokens; r != nil || c != nil {
-			var total int64
-			if r != nil {
-				total += *r
-			}
-			if c != nil {
-				total += *c
-			}
-			u.Cache = &total
-		}
+		u.mergeCache(d.CacheReadInputTokens, d.cacheCreation())
 	}
 }
 
@@ -174,7 +229,7 @@ func openaiSSEUsage(data []byte, u *Usage) {
 		u.Out = chunk.Usage.CompletionTokens
 	}
 	if d := chunk.Usage.PromptTokensDetails; d != nil && d.CachedTokens != nil {
-		u.Cache = d.CachedTokens
+		u.mergeCache(d.CachedTokens, nil)
 	}
 }
 
@@ -210,20 +265,25 @@ func (p *jsonUsageParser) Usage() Usage {
 	return p.usage
 }
 
+// usageFields 是响应体 usage 对象的字段并集:同时兼容 OpenAI 的 prompt/completion
+// 键名与 Anthropic 的 input/output 键名。
+type usageFields struct {
+	PromptTokens             *int64               `json:"prompt_tokens"`
+	CompletionTokens         *int64               `json:"completion_tokens"`
+	InputTokens              *int64               `json:"input_tokens"`
+	OutputTokens             *int64               `json:"output_tokens"`
+	CacheReadInputTokens     *int64               `json:"cache_read_input_tokens"`
+	CacheCreationInputTokens *int64               `json:"cache_creation_input_tokens"`
+	CacheCreation            *cacheCreationDetail `json:"cache_creation"`
+	PromptTokensDetails      *struct {
+		CachedTokens *int64 `json:"cached_tokens"`
+	} `json:"prompt_tokens_details"`
+}
+
 // parseJSONUsage 解析非流式响应体中的 usage(兼容 OpenAI 与 Anthropic 两种键名)。
 func parseJSONUsage(body []byte, u *Usage) {
 	var doc struct {
-		Usage struct {
-			PromptTokens             *int64 `json:"prompt_tokens"`
-			CompletionTokens         *int64 `json:"completion_tokens"`
-			InputTokens              *int64 `json:"input_tokens"`
-			OutputTokens             *int64 `json:"output_tokens"`
-			CacheReadInputTokens     *int64 `json:"cache_read_input_tokens"`
-			CacheCreationInputTokens *int64 `json:"cache_creation_input_tokens"`
-			PromptTokensDetails      *struct {
-				CachedTokens *int64 `json:"cached_tokens"`
-			} `json:"prompt_tokens_details"`
-		} `json:"usage"`
+		Usage usageFields `json:"usage"`
 	}
 	if err := json.Unmarshal(body, &doc); err != nil {
 		return
@@ -241,19 +301,17 @@ func parseJSONUsage(body []byte, u *Usage) {
 	case use.OutputTokens != nil:
 		u.Out = use.OutputTokens
 	}
-	switch {
-	case use.CacheReadInputTokens != nil || use.CacheCreationInputTokens != nil:
-		var total int64
-		if use.CacheReadInputTokens != nil {
-			total += *use.CacheReadInputTokens
-		}
-		if use.CacheCreationInputTokens != nil {
-			total += *use.CacheCreationInputTokens
-		}
-		u.Cache = &total
-	case use.PromptTokensDetails != nil && use.PromptTokensDetails.CachedTokens != nil:
-		u.Cache = use.PromptTokensDetails.CachedTokens
+	// 缓存写入量可能以明细对象(新版)或汇总数字键(旧版)给出。
+	read := use.CacheReadInputTokens
+	creation := use.CacheCreation.total()
+	if creation == nil {
+		creation = use.CacheCreationInputTokens
 	}
+	// Anthropic 的读写分量优先;两者都缺失时退回 OpenAI 的缓存读命中数。
+	if read == nil && creation == nil && use.PromptTokensDetails != nil {
+		read = use.PromptTokensDetails.CachedTokens
+	}
+	u.mergeCache(read, creation)
 }
 
 // relayBufferSize 是流式转发的分块大小。
