@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Session 轨迹预览 · ds-context</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --card: #ffffff;
+    --line: #e3e6ea;
+    --text: #1c2024;
+    --muted: #6b7280;
+    --accent: #2f6fed;
+    --ok: #127a4b;
+    --warn: #b45309;
+    --err: #b42318;
+    --infer: #6d28d9;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.55 system-ui, -apple-system, "Segoe UI", "PingFang SC", sans-serif;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 28px 20px 80px; }
+  h1 { font-size: 17px; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 12.5px; margin-bottom: 18px; }
+  .note {
+    background: #eef2ff; border: 1px solid #dbe3ff; color: #27357a;
+    border-radius: 8px; padding: 10px 12px; font-size: 12.5px; margin-bottom: 20px;
+  }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
+
+  /* session header */
+  .session { padding: 16px 18px; margin-bottom: 20px; }
+  .session .id { font-family: var(--mono); font-size: 13.5px; font-weight: 600; }
+  .session .meta { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
+  .stats { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 14px; }
+  .stat { min-width: 74px; }
+  .stat .k { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .stat .v { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  /* turn */
+  .turn { margin-bottom: 14px; overflow: hidden; }
+  .turn > .head { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 12px 16px; border-bottom: 1px solid transparent; }
+  .turn.open > .head { border-bottom-color: var(--line); }
+  .turn .idx { width: 22px; height: 22px; border-radius: 6px; background: #eef2f7; color: #374151; font-size: 12px; font-weight: 600; display: grid; place-items: center; flex: none; }
+  .turn .title { font-weight: 600; }
+  /* 虚线标题:取自该轮首个 step 的新增行,需解析、可渐进填充(与 turn 行的「N 个工具」同一批) */
+  .turn .title.lazy { border-bottom: 1px dashed #cbd5e1; cursor: help; }
+  .turn .chips { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .turn .body { display: none; }
+  .turn.open .body { display: block; }
+
+  .chip { font-size: 11.5px; color: var(--muted); background: #f3f4f6; border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .chip.infer { color: var(--infer); background: #f5f2ff; border-color: #e4dbff; border-style: dashed; }
+  .chip.compress { color: #9a3412; background: #fff4ec; border-color: #f6cdb4; font-weight: 600; }
+  .chip.retry { color: var(--warn); background: #fdf6ec; border-color: #f3ddb8; }
+  .chip.failc { color: var(--err); background: #fdecea; border-color: #f6c9c4; font-weight: 600; }
+  .chip.errc { color: var(--err); background: #fdecea; border-color: #f6c9c4; font-family: var(--mono); }
+  .chip.notrace { color: var(--muted); background: #f4f5f7; border-color: #dfe3e8; border-style: dashed; }
+  .chip.parallel { color: var(--infer); background: #f5f2ff; border-color: #e4dbff; }
+  .chip.lazy { color: #64748b; background: #f8fafc; border-color: #dde3ea; border-style: dashed; }
+  .dnote { font-size: 12px; color: var(--muted); padding: 2px 0 8px; }
+  .dnote b { color: #475569; font-weight: 600; }
+
+  /* steps */
+  .steps { padding: 6px 0 10px 0; }
+  .step { position: relative; }
+  .step > .head { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 8px 16px 8px 26px; border-left: 2px solid transparent; }
+  .step > .head:hover { background: #fafbfc; }
+  .step.open > .head { background: #f7f9ff; border-left-color: var(--accent); }
+  .rail { position: absolute; left: 25px; top: 0; bottom: 0; border-left: 1px dashed #d7dce3; }
+  .step .seq { font-family: var(--mono); font-size: 12.5px; color: #374151; min-width: 30px; }
+  .step .time { font-family: var(--mono); font-size: 12.5px; color: var(--muted); }
+  .step .lat { font-variant-numeric: tabular-nums; min-width: 56px; text-align: right; }
+  .step .tokens { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .step .spacer { margin-left: auto; }
+
+  .status { font-size: 11.5px; font-weight: 600; padding: 1px 7px; border-radius: 5px; font-variant-numeric: tabular-nums; }
+  .s2xx { color: var(--ok); background: #e8f5ee; }
+  .s429 { color: var(--warn); background: #fdf1e3; }
+  .s5xx { color: var(--err); background: #fdecea; }
+
+  .badge { font-size: 11px; padding: 1px 7px; border-radius: 5px; border: 1px dashed #ddd6fe; color: var(--infer); background: #faf8ff; }
+  .badge.added { color: #475569; background: #f1f5f9; border-color: #dbe2ea; }
+  .badge.retry { color: var(--warn); background: #fdf6ec; border-color: #f3ddb8; }
+  .badge.new    { color: var(--accent); background: #eef4ff; border-color: #cfe0ff; }
+  .badge.fork   { color: #a16207; background: #fef9e7; border-color: #f0e0a8; }
+  .badge.rewrite{ color: var(--infer); background: #f7f4ff; border-color: #e0d8ff; }
+  .badge.compress { color: #9a3412; background: #fff4ec; border-color: #f6cdb4; border-style: solid; font-weight: 600; }
+
+  /* step detail */
+  .detail { display: none; padding: 4px 16px 16px 58px; }
+  .step.open .detail { display: block; }
+  .loading { color: var(--muted); font-size: 12.5px; padding: 10px 0; }
+  .sect { margin-top: 10px; }
+  .sect > .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+
+  .tool { border: 1px solid var(--line); border-radius: 8px; margin-bottom: 8px; overflow: hidden; }
+  .tool > .t-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: #fbfcfd; border-bottom: 1px solid var(--line); }
+  .tool .name { font-family: var(--mono); font-size: 12.5px; font-weight: 600; }
+  .tool .from { font-size: 11.5px; color: var(--muted); }
+  .tool pre { margin: 0; padding: 9px 10px; font-family: var(--mono); font-size: 12px; white-space: pre-wrap; word-break: break-word; background: #fff; }
+  .tool .io { border-top: 1px solid var(--line); }
+  .tool .io:first-of-type { border-top: 0; }
+  .tool .io .k { font-size: 10.5px; color: var(--muted); padding: 6px 10px 0; text-transform: uppercase; letter-spacing: .05em; }
+  .ok { color: var(--ok); font-weight: 600; }
+  .err { color: var(--err); font-weight: 600; }
+  .unseen { color: var(--muted); font-weight: 600; }
+
+  .msgs { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .msg { display: flex; gap: 10px; padding: 7px 10px; border-top: 1px solid var(--line); }
+  .msg:first-child { border-top: 0; }
+  .msg .role { font-family: var(--mono); font-size: 11.5px; min-width: 74px; color: #475569; }
+  .msg.user .role { color: var(--accent); }
+  .msg .txt { font-family: var(--mono); font-size: 12px; white-space: pre-wrap; word-break: break-word; }
+  .inherited { font-size: 12px; color: var(--muted); padding: 7px 10px; background: #fafbfc; border-bottom: 1px solid var(--line); }
+  .caret { color: #9aa3af; font-size: 11px; width: 10px; flex: none; }
+
+  /* 工具调用:独立于 step 的事件行,位于发起轮与结果轮之间(对齐 waku 的事件流形态) */
+  .calls { padding: 0 16px 0 58px; }
+  .call { border-left: 2px solid #e8ecf1; margin: 4px 0; background: #fcfdfe; border-radius: 0 6px 6px 0; }
+  .call > summary { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 5px 10px; font-size: 12px; list-style: none; }
+  .call > summary::-webkit-details-marker { display: none; }
+  .call .name { font-family: var(--mono); font-weight: 600; }
+  .call .from { color: var(--muted); font-size: 11px; margin-left: auto; }
+  .call-body { padding: 2px 10px 8px; }
+  .call-body .k { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-top: 6px; }
+  .call-body pre { margin: 2px 0 0; font-family: var(--mono); font-size: 11.5px; white-space: pre-wrap; word-break: break-word; color: #334155; }
+
+  /* compression compare */
+  .cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .cmp-col { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #fff; }
+  .cmp-head { padding: 6px 10px; background: #fbfcfd; border-bottom: 1px solid var(--line); font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .cmp-row { display: flex; gap: 8px; padding: 5px 10px; font-family: var(--mono); font-size: 11.5px; border-top: 1px solid #f3f5f8; }
+  .cmp-row .r { min-width: 68px; color: #64748b; }
+  .cmp-row.dim { color: #9aa3af; }
+  .cmp-row.del { background: #fdf3f3; color: #9b2c2c; }
+  .cmp-row.add { background: #eff8f2; color: #14532d; }
+  .cmp-row.keep { color: #475569; }
+  details.rm { border-top: 1px dashed #f0d9b5; background: #fffbf5; }
+  details.rm > summary { cursor: pointer; padding: 7px 10px; font-size: 11.5px; color: var(--warn); }
+  details.rm pre { margin: 0; padding: 8px 10px 10px; font-family: var(--mono); font-size: 11.5px; white-space: pre-wrap; color: #57534e; background: #fffbf5; }
+  .cmp-sum { margin-top: 8px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .cmp-sum b { color: #9a3412; }
+
+  /* content compression (microcompact) */
+  .cc { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #fff; }
+  .cc-row { display: flex; gap: 10px; padding: 6px 10px; border-top: 1px solid #f3f5f8; font-family: var(--mono); font-size: 11.5px; }
+  .cc-row:first-child { border-top: 0; }
+  .cc-line { color: #64748b; min-width: 48px; }
+  .cc-size { color: #9a3412; min-width: 132px; font-variant-numeric: tabular-nums; }
+  .cc-text { color: #9b2c2c; }
+  .cc-sum { padding: 7px 10px; border-top: 1px solid var(--line); background: #fffbf5; font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  /* tabs:轨迹 / 会话 / 工具(对齐 waku 的 Observability 分页) */
+  .tabs { display: flex; gap: 6px; margin-bottom: 16px; }
+  .tab { font: inherit; font-size: 13px; padding: 6px 14px; border: 1px solid var(--line); background: #fff; color: var(--muted); border-radius: 8px; cursor: pointer; }
+  .tab.active { color: var(--text); border-color: #c7d2e0; font-weight: 600; box-shadow: 0 1px 2px rgba(15, 23, 42, .06); }
+  .tt { width: 100%; border-collapse: collapse; background: #fff; font-size: 13px; }
+  .tt th { text-align: left; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; padding: 9px 12px; border-bottom: 1px solid var(--line); font-weight: 600; }
+  .tt td { padding: 9px 12px; border-bottom: 1px solid #f1f3f6; font-variant-numeric: tabular-nums; }
+  .tt tr:last-child td { border-bottom: 0; }
+  .tt tr.cur td { background: #f8fbff; }
+  .tt tr.link { cursor: pointer; }
+  .tt tr.link:hover td { background: #f2f7ff; }
+  .tt .tname { font-family: var(--mono); font-weight: 600; }
+  .src { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 0 7px; }
+  .src.mcp { color: var(--infer); border-color: #e4dbff; background: #faf8ff; }
+  .bar { display: inline-flex; height: 6px; width: 80px; border-radius: 3px; overflow: hidden; background: #eef1f5; vertical-align: middle; }
+  .bar i { display: block; }
+  .bar .ok { background: #34a06a; }
+  .bar .err { background: #d4574a; }
+  .bar .un { background: #b8c0cc; }
+  .filters { display: flex; gap: 10px; align-items: center; margin: 14px 0 2px; flex-wrap: wrap; }
+  .filters input { font: inherit; font-size: 13px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 8px; width: 200px; }
+  .filters input:focus { outline: 2px solid #dbe3ff; outline-offset: 1px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { font: inherit; font-size: 12.5px; padding: 5px 11px; border: 0; background: #fff; color: var(--muted); cursor: pointer; border-left: 1px solid var(--line); }
+  .seg button:first-child { border-left: 0; }
+  .seg button.on { background: #eef2ff; color: #27357a; font-weight: 600; }
+  .empty { padding: 26px; text-align: center; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Session 轨迹预览</h1>
+  <div class="sub">静态原型:数据为示例值。骨架与汇总先出,tool 明细与 messages 在展开时才"加载"。</div>
+
+  <div class="note">
+    <b>怎么读:</b>虚线紫框是<b>推断</b>字段(指纹比对得出),其余为实测值。
+    <b>关键约束:</b>网关只存请求体、不存响应体——每个 step 的「请求新增」是事实,
+    「响应」是从下一轮请求的历史消息反推的(客户端把上一轮的 assistant 消息拼回了 messages)。
+    <b>重试</b>按组标记 2/3。<b>压缩分两种</b>:摘要压缩(turn 4,行数骤降,展开给出前后对照与被移除内容)与
+    内容压缩(turn 5,条数不变、若干行被占位文本替换,展开给出受影响的行与长度对比)。
+    <b>继承</b>行表示本轮复用了历史消息但未解析。
+    <b>turn 行</b>的压缩/重试/失败标记是指纹级(零解析);「N 个工具」与<b>虚线标题</b>需解析该轮新增行,
+    在骨架渲染后渐进填充。
+  </div>
+
+  <div id="app"></div>
+</div>
+
+<script>
+const SESSION = {
+  id: "1:claude-code-7f3a",
+  source: "explicit",
+  note: "explicit: x-claude-code-session-id",
+  first_seen: "10-13 09:40:00",
+  last_seen: "10-13 10:02:30",
+  usage: { in: 459300, out: 56900, cache: 256100 },
+  latency: { avg_ms: 3500, max_ms: 9600 },
+  turns: [
+    {
+      index: 1, title: "登录接口报 500,帮我看看",
+      started_at: "09:40:00", duration_ms: 9800,
+      usage: { in: 26200, out: 2700, cache: 16000 },
+      steps: [
+        {
+          seq: 1, ts: "09:40:00", latency_ms: 2400, status_code: 200,
+          model: "claude-sonnet-4-5", stream: true,
+          usage: { in: 12000, out: 1200, cache: 8000 },
+          delta_kind: "new", inherited: 0,
+          retry: { n: 1, of: 1 },
+          tools: [
+            {
+              name: "Read", status: "ok", issued_at_seq: 1,
+              input: '{ "file_path": "pkg/auth/handler.go" }',
+              result: "1  func login(w http.ResponseWriter, r *http.Request) {\n2      err := svc.Auth(r.Context(), r.Body)\n3      if err != nil { … }"
+            },
+            {
+              name: "Grep", status: "ok", issued_at_seq: 1,
+              input: '{ "pattern": "svc.Auth", "path": "pkg/auth" }',
+              result: "pkg/auth/handler.go:12:  err := svc.Auth(r.Context(), r.Body)\npkg/auth/service.go:44:func Auth(ctx context.Context, body io.Reader) error {"
+            }
+          ],
+          added: [
+            { role: "user", text: "登录接口报 500,帮我看看" }
+          ]
+        },
+        {
+          seq: 2, ts: "09:40:12", latency_ms: 3100, status_code: 200,
+          model: "claude-sonnet-4-5", stream: true,
+          usage: { in: 14200, out: 1500, cache: 8000 },
+          delta_kind: "added", inherited: 2,
+          retry: { n: 1, of: 1 },
+          tools: [{
+            name: "Bash", status: "error", issued_at_seq: 2,
+            input: '{ "command": "go test ./pkg/auth" }',
+            result: "--- FAIL: TestLogin (0.02s)\n    handler_test.go:44: got 500, want 200"
+          }],
+          added: [
+            { role: "assistant", text: "tool_use → Read(pkg/auth/handler.go)\ntool_use → Grep(svc.Auth, pkg/auth)" },
+            { role: "user", text: "tool_result → Read: 文件内容\ntool_result → Grep: 2 处匹配" }
+          ]
+        }
+      ]
+    },
+    {
+      index: 2, title: "修一下,顺便跑通测试",
+      started_at: "09:41:30", duration_ms: 61000,
+      usage: { in: 48000, out: 3900, cache: 0 },
+      steps: [
+        {
+          seq: 3, ts: "09:41:30", latency_ms: 300, status_code: 429,
+          model: "claude-sonnet-4-5", stream: true,
+          usage: { in: 16000, out: 0, cache: 0 },
+          delta_kind: "added", inherited: 4,
+          retry: { n: 1, of: 3 },
+          tools: [],
+          added: [
+            { role: "assistant", text: "tool_use → Bash(go test ./pkg/auth)" },
+            { role: "user", text: "tool_result → FAIL pkg/auth 3 tests" }
+          ]
+        },
+        {
+          seq: 4, ts: "09:41:33", latency_ms: 300, status_code: 429,
+          model: "claude-sonnet-4-5", stream: true,
+          usage: { in: 16000, out: 0, cache: 0 },
+          delta_kind: "retry", inherited: 5,
+          retry: { n: 2, of: 3 },
+          tools: [], added: []
+        },
+        {
+          seq: 5, ts: "09:41:36", latency_ms: 2900, status_code: 200,
+          model: "claude-sonnet-4-5", stream: true,
+          usage: { in: 16000, out: 1800, cache: 0 },
+          delta_kind: "retry", inherited: 5,
+          retry: { n: 3, of: 3 },
+          tools: [{
+            name: "Edit", status: "ok", issued_at_seq: 5,
+            input: '{ "file_path": "pkg/auth/handler.go", "old_string": "if err != nil { … }", "new_string": "…" }',
+            result: "文件已修改(1 处替换)"
+          }],
+          added: []
+        }
+      ]
+    },
+    {
+      index: 3, title: "(收尾,无工具调用)",
+      started_at: "09:52:10", duration_ms: 8100,
+      usage: { in: 238000, out: 35200, cache: 164100 },
+      steps: [
+        {
+          seq: 6, ts: "09:52:10", latency_ms: 8100, status_code: 200,
+          model: "claude-sonnet-4-5", stream: true,
+          usage: { in: 238000, out: 35200, cache: 164100 },
+          delta_kind: "added", inherited: 6,
+          retry: { n: 1, of: 1 },
+          tools: [],
+          added: [
+            { role: "assistant", text: "tool_use → Edit(pkg/auth/handler.go)" },
+            { role: "user", text: "tool_result → 文件已修改" }
+          ]
+        }
+      ]
+    },
+    {
+      index: 4, title: "继续:把测试补上",
+      started_at: "09:53:40", duration_ms: 30000,
+      usage: { in: 79000, out: 3600, cache: 30000 },
+      steps: [
+        {
+          seq: 7, ts: "09:53:40", latency_ms: 4300, status_code: 200,
+          model: "claude-sonnet-4-5", stream: true,
+          usage: { in: 27000, out: 1800, cache: 12000 },
+          delta_kind: "added", inherited: 8,
+          retry: { n: 1, of: 1 },
+          tools: [{
+            name: "Read", status: "unseen", issued_at_seq: 7,
+            input: '{ "file_path": "pkg/auth/service.go" }',
+            result: "(结果所在的下一轮已被上下文压缩改写,未能观察到)"
+          }],
+          added: [
+            { role: "assistant", text: "已修复:err 未包装导致中间件误判为 500…(step 6 的响应,本轮请求才带回)" },
+            { role: "user", text: "继续,把测试补上" }
+          ]
+        },
+        {
+          seq: 8, ts: "09:54:02", latency_ms: 8100, status_code: 200,
+          model: "claude-sonnet-4-5", stream: true,
+          usage: { in: 52000, out: 1800, cache: 30000 },
+          delta_kind: "rewrite", inherited: 23,
+          retry: { n: 1, of: 1 },
+          compress: {
+            before_seq: 7, before_lines: 128, after_lines: 24,
+            kept: 23, removed: 104, added: 1,
+            removed_range: "3–106",
+            before_preview: [
+              { r: "system", cls: "dim" },
+              { r: "user", text: "登录接口报 500,帮我看看" },
+              { r: "assistant", text: "我先看看现有实现…", cls: "del" },
+              { r: "user", text: "tool_result → 128 行", cls: "del" }
+            ],
+            after_preview: [
+              { r: "system", cls: "dim" },
+              { r: "user", text: "摘要:此前已完成 auth 修复与测试补充…", cls: "add" },
+              { r: "assistant", text: "tool_use → Read(pkg/auth/service.go)", cls: "keep" },
+              { r: "user", text: "tool_result → 42 行", cls: "keep" }
+            ],
+            removed_excerpt:
+              "assistant  我先看看现有实现…\n" +
+              "user       tool_result → 128 行\n" +
+              "assistant  这里有两个问题:错误未包装、缺少回归测试…\n" +
+              "…(共 104 行,压缩后由一条摘要替代)"
+          },
+          tools: [
+            {
+              name: "Edit", status: "ok", issued_at_seq: 8,
+              input: '{ "file_path": "pkg/auth/service_test.go", "old_string": "", "new_string": "…" }',
+              result: "文件已创建(48 行)"
+            },
+            {
+              name: "mcp__github__create_issue", status: "unseen", issued_at_seq: 8,
+              input: '{ "title": "auth: 修复 500 并补回归测试", "body": "…" }',
+              result: "(后续请求中未出现该调用的结果)"
+            }
+          ],
+          added: [
+            { role: "user", text: "摘要:此前已完成 auth 修复与测试补充…(替代被移除的 104 行)" }
+          ]
+        }
+      ]
+    },
+    {
+      index: 5, title: "再跑一遍测试",
+      started_at: "09:54:30", duration_ms: 9600,
+      usage: { in: 64000, out: 2200, cache: 46000 },
+      steps: [
+        {
+          seq: 9, ts: "09:54:30", latency_ms: 9600, status_code: 200,
+          model: "claude-sonnet-4-5", stream: true,
+          usage: { in: 64000, out: 2200, cache: 46000 },
+          delta_kind: "fork", inherited: 24,
+          retry: { n: 1, of: 1 },
+          content_compress: {
+            total_before: 25400, total_after: 132,
+            rows: [
+              { line: 12, before: 8600, after: 44, text: "[Old tool result content cleared]" },
+              { line: 15, before: 9320, after: 44, text: "[Old tool result content cleared]" },
+              { line: 19, before: 7480, after: 44, text: "[Old tool result content cleared]" }
+            ]
+          },
+          tools: [],
+          added: [
+            { role: "assistant", text: "tool_use → Edit(pkg/auth/service_test.go)" },
+            { role: "user", text: "tool_result → 文件已创建(48 行)" },
+            { role: "user", text: "再跑一遍测试" }
+          ]
+        }
+      ]
+    },
+    {
+      index: 6, title: "(无轨迹 · 被拒请求)",
+      started_at: "09:55:10", duration_ms: 40,
+      usage: { in: 0, out: 0, cache: 0 },
+      steps: [
+        {
+          seq: 10, ts: "09:55:10", latency_ms: 40, status_code: 401,
+          error_kind: "auth", model: "—", stream: false,
+          usage: { in: 0, out: 0, cache: 0 },
+          delta_kind: "none", has_trace: false,
+          retry: { n: 1, of: 1 }, tools: [], added: []
+        }
+      ]
+    },
+    {
+      index: 7, title: "新任务:排查 /api/orders 超时",
+      started_at: "10:02:00", duration_ms: 3200,
+      usage: { in: 900, out: 220, cache: 0 },
+      steps: [
+        {
+          seq: 11, ts: "10:02:00", latency_ms: 3200, status_code: 200,
+          model: "claude-sonnet-4-5", stream: true,
+          usage: { in: 900, out: 220, cache: 0 },
+          delta_kind: "new", inherited: 0, cleared: true,
+          retry: { n: 1, of: 1 }, tools: [],
+          added: [ { role: "user", text: "排查一下 /api/orders 的超时" } ]
+        }
+      ]
+    },
+    {
+      index: 8, title: "(新链 · 疑似子 agent 另起)",
+      started_at: "10:02:30", duration_ms: 5000,
+      usage: { in: 2400, out: 480, cache: 0 },
+      steps: [
+        {
+          seq: 12, ts: "10:02:30", latency_ms: 5000, status_code: 200,
+          model: "claude-haiku-4-5", stream: true,
+          usage: { in: 2400, out: 480, cache: 0 },
+          delta_kind: "new", inherited: 0, chain_note: "与主链无任何共同前缀或共享尾部",
+          retry: { n: 1, of: 1 }, tools: [],
+          added: [ { role: "user", text: "(子任务上下文,与主链不相交)" } ]
+        }
+      ]
+    }
+  ]
+};
+
+// 会话列表:跨会话的入口层。预览里只有第一个会话有完整轨迹,其余为摘要示例
+const SESSIONS = [
+  { id: "1:claude-code-7f3a", source: "显式标识", note: "x-claude-code-session-id",
+    first_seen: "10-13 09:40:00", last_seen: "10-13 10:02:30", steps: 12, requests: 14,
+    usage: { in: 459300, out: 56900, cache: 256100 }, current: true },
+  { id: "2:anon-20261013", source: "匿名", note: "no identifier (anon by date)",
+    first_seen: "10-13 11:12:03", last_seen: "10-13 11:31:47", steps: 6, requests: 7,
+    usage: { in: 88000, out: 9200, cache: 41000 } },
+  { id: "1:codex-thread-88c", source: "显式标识", note: "thread-id",
+    first_seen: "10-12 20:05:11", last_seen: "10-12 20:44:02", steps: 23, requests: 25,
+    usage: { in: 731000, out: 88400, cache: 0 } },
+  { id: "1:anon-20261011", source: "匿名", note: "degraded: invalid identifier (len 200)",
+    first_seen: "10-11 08:30:00", last_seen: "10-11 08:33:12", steps: 3, requests: 3,
+    usage: { in: 12400, out: 1800, cache: 0 } }
+];
+
+const fmtK = n => n == null ? "—" : (n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + "k" : String(n));
+const fmtMs = ms => ms == null ? "—"
+  : ms >= 60000 ? Math.floor(ms / 60000) + "m" + Math.round((ms % 60000) / 1000) + "s"
+    : ms >= 1000 ? (ms / 1000).toFixed(1) + "s"
+      : ms + "ms";
+const fmtBytes = n => n >= 1024 ? (n / 1024).toFixed(1) + "KB" : n + "B";
+// session_source 是人话标签,session_note 是排查线索;合并成一行渲染,避免来源重复出现
+const SOURCE_LABEL = { explicit: "显式标识", anon: "匿名" };
+// 跨度 = 首末快照 ts 之差(请求进入网关的时刻,不含最后一次的响应耗时)
+const parseTS = s => new Date("2026-" + s.replace(" ", "T"));
+function spanLabel() {
+  const ms = parseTS(SESSION.last_seen) - parseTS(SESSION.first_seen);
+  const m = Math.floor(ms / 60000), sec = Math.round((ms % 60000) / 1000);
+  return m + "m" + String(sec).padStart(2, "0") + "s";
+}
+function sessionMeta() {
+  const note = SESSION.note;
+  const degraded = note.match(/^degraded:\s*([^;]+);/);
+  const detail = note
+    .replace(/^degraded:\s*[^;]+;\s*/, "")
+    .replace(/^(explicit|anon):\s*/, "");
+  const parts = [`判定 <b>${SOURCE_LABEL[SESSION.source] || SESSION.source}</b>`];
+  if (degraded) parts.push(`<span style="color:#b45309">降级:${esc(degraded[1].trim())}</span>`);
+  if (detail) parts.push(`<span style="font-family:var(--mono)">${esc(detail)}</span>`);
+  return parts.join(" · ");
+}
+const statusClass = c => c >= 500 ? "s5xx" : c >= 400 ? "s429" : "s2xx";
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const badgeLabel = { new: "首步", added: "追加", retry: "重复", fork: "分叉", rewrite: "改写" };
+
+// 判定理由:与 delta_kind 一起给出"为什么这么判",无法确定时如实说明(对齐 waku 的 n/a + note 原则)
+function deltaNote(step) {
+  if (step.cleared) return "无共同前缀也无共享尾部,且行数 ≤ 3 → 上下文清零(如 /clear)";
+  if (step.delta_kind === "new" && step.chain_note) return `无共同前缀也无共享尾部 → 新链:${step.chain_note}`;
+  if (step.delta_kind === "new") return "会话首条快照,无前序可比";
+  if (step.delta_kind === "retry") return "与上一步的行指纹序列完全相同,无新增行";
+  if (step.compress) return `无共同前缀;旧序列末尾 ${step.compress.kept} 行原样保留 → 摘要压缩`;
+  if (step.content_compress) return `前缀 ${step.inherited} 行相同;${step.content_compress.rows.length} 行内容被替换为占位文本(长度骤降)`;
+  if (step.delta_kind === "fork") return `共同前缀 ${step.inherited} 行相同,尾部被替换(新输入或改写,无法进一步区分)`;
+  return `前缀延伸:继承 ${step.inherited} 行 + 新增 ${step.added.length} 条`;
+}
+
+// 调用行:紧随发起它的 step 渲染,位置本身表达"客户端在这里执行了工具"
+function callsHTML(step) {
+  if (!step.tools.length) return "";
+  const rows = step.tools.map(t => {
+    const statusHTML =
+      t.status === "ok" ? '<span class="ok">成功</span>' :
+      t.status === "error" ? '<span class="err">失败</span>' :
+      '<span class="unseen">结果未见</span>';
+    return `<details class="call">
+      <summary>
+        <span>↳</span>
+        <span class="name">${esc(t.name)}</span>
+        ${statusHTML}
+        <span class="from">发起:step ${t.issued_at_seq} 响应(推断) · 结果:step ${t.issued_at_seq + 1} 请求</span>
+      </summary>
+      <div class="call-body">
+        <div class="k">入参</div><pre>${esc(t.input)}</pre>
+        <div class="k">出参</div><pre>${esc(t.result)}</pre>
+      </div>
+    </details>`;
+  }).join("");
+  return `<div class="calls">${rows}</div>`;
+}
+
+function compressHTML(step) {
+  const c = step.compress;
+  const rows = (list) => list.map(r =>
+    `<div class="cmp-row ${r.cls || ""}"><span class="r">${esc(r.r)}</span><span>${esc(r.text || "")}</span></div>`
+  ).join("");
+  return `<div class="sect">
+    <div class="lbl">上下文压缩 · step ${c.before_seq} → step ${step.seq}</div>
+    <div class="cmp">
+      <div class="cmp-col">
+        <div class="cmp-head">压缩前 · ${c.before_lines} 行</div>
+        ${rows(c.before_preview)}
+        <details class="rm">
+          <summary>移除 ${c.removed} 行(第 ${c.removed_range} 行)· 点开查看</summary>
+          <pre>${esc(c.removed_excerpt)}</pre>
+        </details>
+      </div>
+      <div class="cmp-col">
+        <div class="cmp-head">压缩后 · ${c.after_lines} 行</div>
+        ${rows(c.after_preview)}
+      </div>
+    </div>
+    <div class="cmp-sum">保留 <b>${c.kept}</b> · 移除 <b>${c.removed}</b> · 新增 <b>${c.added}</b> 行(区间由行指纹算出,内容在展开时加载)</div>
+  </div>`;
+}
+
+function detailHTML(step) {
+  if (step.has_trace === false) {
+    return `<div class="dnote"><b>无轨迹</b> · 该请求未生成快照(请求体不可解析,或未进入快照生成范围),仅保留原始层;状态与延迟仍来自请求记录</div>`;
+  }
+  const note = `<div class="dnote"><b>判定理由</b> · ${esc(deltaNote(step))}</div>`;
+  const compress = step.compress ? compressHTML(step) : "";
+  const contentCompress = step.content_compress ? contentCompressHTML(step) : "";
+  const rows = step.added.map(m =>
+    `<div class="msg ${m.role}"><span class="role">${m.role}</span><span class="txt">${esc(m.text)}</span></div>`
+  ).join("");
+  const inherited = step.inherited
+    ? `<div class="inherited">↑ 继承 ${step.inherited} 行历史消息(未解析)</div>` : "";
+  const msgs = `<div class="sect"><div class="lbl">请求 · 相对上一请求新增 ${step.added.length} 条消息</div>
+    <div class="msgs">${inherited}${rows || '<div class="msg"><span class="txt" style="color:#9aa3af">(重试,无新增)</span></div>'}</div></div>`;
+  // 响应不在此处展示:工具调用已提为 step 之间的独立事件行(见 callsHTML)
+  return note + compress + contentCompress + msgs;
+}
+
+function contentCompressHTML(step) {
+  const c = step.content_compress;
+  const rows = c.rows.map(r => `<div class="cc-row">
+    <span class="cc-line">行 ${r.line}</span>
+    <span class="cc-size">${fmtBytes(r.before)} → ${fmtBytes(r.after)}</span>
+    <span class="cc-text">${esc(r.text)}</span>
+  </div>`).join("");
+  return `<div class="sect">
+    <div class="lbl">内容压缩 · 消息条数不变,${c.rows.length} 行内容被替换</div>
+    <div class="cc">${rows}
+      <div class="cc-sum">合计 ${fmtBytes(c.total_before)} → ${fmtBytes(c.total_after)}(长度取自 line_sizes,判据在指纹层完成)</div>
+    </div>
+  </div>`;
+}
+
+function stepHTML(step) {
+  const retryChip = step.retry.of > 1
+    ? `<span class="badge retry">重试 ${step.retry.n}/${step.retry.of}</span>` : "";
+  const gapChip = step.gap_ms == null ? "" :
+    `<span class="chip" title="轮间间隔:含客户端本地执行与人的思考时间">间隔 ${fmtMs(step.gap_ms)}</span>`;
+  const toolChip = step.tools.length ? `<span class="chip">${step.tools.length} 个工具</span>` : "";
+  // 被拒/短路的请求:网关侧归因可见;若未生成快照则标明"无轨迹",不得静默省略
+  const errChip = step.error_kind ? `<span class="chip errc" title="网关侧归因">${esc(step.error_kind)}</span>` : "";
+  const noTrace = step.has_trace === false ? `<span class="chip notrace" title="该请求没有快照,只有记录">无轨迹</span>` : "";
+  let deltaBadge = "";
+  if (step.has_trace !== false) {
+    if (step.cleared) deltaBadge = `<span class="badge compress" title="${esc(deltaNote(step))}">上下文清零</span>`;
+    else if (step.compress) deltaBadge = `<span class="badge compress" title="${esc(deltaNote(step))}">压缩 ${step.compress.before_lines}→${step.compress.after_lines} 行</span>`;
+    else if (step.content_compress) deltaBadge = `<span class="badge compress" title="${esc(deltaNote(step))}">内容压缩 ${step.content_compress.rows.length} 行</span>`;
+    else {
+      // new 有两种语义:会话首步,或与上一步不相交的新链(如子 agent 另起、客户端清理上下文)
+      const label = step.delta_kind === "new" && step.seq !== 1 ? "新链" : badgeLabel[step.delta_kind];
+      deltaBadge = `<span class="badge ${step.delta_kind}" title="${esc(deltaNote(step))}">${label}</span>`;
+    }
+  }
+  return `<div class="step" data-seq="${step.seq}">
+    <div class="rail"></div>
+    <div class="head">
+      <span class="caret">▸</span>
+      <span class="seq">#${step.seq}</span>
+      <span class="time">${step.ts}</span>
+      <span class="status ${statusClass(step.status_code)}">${step.status_code}</span>
+      <span class="lat">${fmtMs(step.latency_ms)}</span>
+      <span class="tokens">in ${fmtK(step.usage.in)} / out ${fmtK(step.usage.out)} / cache ${fmtK(step.usage.cache)}</span>
+      <span class="spacer"></span>
+      ${errChip}${noTrace}${toolChip}${gapChip}${deltaBadge}${retryChip}
+    </div>
+    <div class="detail"></div>
+  </div>`;
+}
+
+function turnHTML(turn, open) {
+  // 轮级标记从步骤分类推断:非首步的「新链」意味着这条消息链与上一步不相交
+  const newChain = turn.steps.some(s => s.delta_kind === "new" && s.seq !== 1 && !s.cleared);
+  const chainChip = newChain
+    ? `<span class="chip parallel" title="与上一步既无共同前缀也无共享尾部(可能来自子 agent 或客户端清理上下文);本变更只标记,不做链归属分组">⇄ 新链</span>` : "";
+  const tools = turn.steps.reduce((n, s) => n + s.tools.length, 0);
+  const compresses = turn.steps.filter(s => s.compress).length;
+  const contents = turn.steps.filter(s => s.content_compress).length;
+  const retries = turn.steps.filter(s => s.delta_kind === "retry").length;
+  const failures = turn.steps.filter(s => s.status_code >= 400 || s.error_kind).length;
+  const toolChip = `<span class="chip lazy" title="需解析该轮新增行,可渐进填充">${tools} 个工具</span>`;
+  const compressChip = compresses ? `<span class="chip compress">⚠ 含压缩 ${compresses} 次</span>` : "";
+  const contentChip = contents ? `<span class="chip compress">⚠ 内容压缩 ${contents} 处</span>` : "";
+  const retryChip = retries ? `<span class="chip retry">重试 ${retries} 次</span>` : "";
+  const failChip = failures ? `<span class="chip failc">⚠ 含失败 ${failures} 步</span>` : "";
+  return `<div class="turn card ${open ? "open" : ""}">
+    <div class="head">
+      <span class="caret">▸</span>
+      <span class="idx">${turn.index}</span>
+      <span class="title lazy" title="标题取自该轮首个 step 的新增行(需解析),可渐进填充">${esc(turn.title)}</span>
+      <span class="chips">
+        <span class="chip">${turn.steps.length} steps</span>
+        <span class="chip">${fmtMs(turn.duration_ms)}</span>
+        <span class="chip">in ${fmtK(turn.usage.in)} / out ${fmtK(turn.usage.out)}</span>
+        ${chainChip}${toolChip}${compressChip}${contentChip}${retryChip}${failChip}
+      </span>
+    </div>
+    <div class="body"><div class="steps">${turn.steps.map(s => stepHTML(s) + callsHTML(s)).join("")}</div></div>
+  </div>`;
+}
+
+// 计数从数组推导,不在数据里重复存(重复的键会被数组覆盖)
+const TOTAL_STEPS = SESSION.turns.reduce((n, t) => n + t.steps.length, 0);
+// 间隔由时间戳算出,不在数据里手写:间隔 = 本步开始 − 上一步结束(含 tool 执行与人的思考时间)
+const clockSec = s => { const [h, m, sec] = s.split(":").map(Number); return h * 3600 + m * 60 + sec; };
+(function computeGaps() {
+  let prevEnd = null;
+  SESSION.turns.forEach(t => t.steps.forEach(s => {
+    const start = clockSec(s.ts);
+    s.gap_ms = prevEnd === null ? null : Math.round((start - prevEnd) * 1000);
+    prevEnd = start + s.latency_ms / 1000;
+  }));
+})();
+
+// 工具视图:按工具名聚合调用与状态(对齐 waku 的 Tools tab)
+const ALL_STEPS = SESSION.turns.flatMap(t => t.steps);
+const nextStepOf = seq => ALL_STEPS.find(s => s.seq === seq + 1);
+// 间隔口径:该调用之后那一步的 gap,含客户端执行与人的思考时间,仅作近似
+function buildToolStats() {
+  const byName = new Map();
+  SESSION.turns.forEach(turn => turn.steps.forEach(step => step.tools.forEach(t => {
+    if (!byName.has(t.name)) {
+      byName.set(t.name, {
+        name: t.name, calls: 0, ok: 0, err: 0, unseen: 0, turns: new Set(), gaps: [],
+        src: t.name.startsWith("mcp__") ? "MCP" : "内置",
+        srcClass: t.name.startsWith("mcp__") ? "mcp" : "local"
+      });
+    }
+    const rec = byName.get(t.name);
+    rec.calls++;
+    if (t.status === "ok") rec.ok++;
+    else if (t.status === "error") rec.err++;
+    else rec.unseen++;
+    rec.turns.add(turn.index);
+    // 结果未见的调用没有可归属的执行窗口,不计间隔(那段时间属于同轮其他调用)
+    const next = nextStepOf(t.issued_at_seq);
+    if (t.status !== "unseen" && next && next.gap_ms != null) rec.gaps.push(next.gap_ms);
+  })));
+  return [...byName.values()].sort((a, b) => b.calls - a.calls || a.name.localeCompare(b.name));
+}
+
+function toolRowHTML(r) {
+  const pct = n => (n / r.calls * 100).toFixed(0) + "%";
+  const gap = !r.gaps.length ? "—"
+    : r.gaps.length === 1 ? fmtMs(r.gaps[0])
+      : fmtMs(Math.min(...r.gaps)) + " ~ " + fmtMs(Math.max(...r.gaps));
+  return `<tr>
+    <td class="tname">${esc(r.name)}</td>
+    <td><span class="src ${r.srcClass}">${r.src}</span></td>
+    <td>${r.calls}</td>
+    <td><span class="bar" title="成功 ${r.ok} · 失败 ${r.err} · 未见 ${r.unseen}"><i class="ok" style="width:${r.ok / r.calls * 100}%"></i><i class="err" style="width:${r.err / r.calls * 100}%"></i><i class="un" style="width:${r.unseen / r.calls * 100}%"></i></span></td>
+    <td>${r.ok ? pct(r.ok) : "—"}</td>
+    <td>${gap}</td>
+    <td>${[...r.turns].map(x => "T" + x).join(" · ")}</td>
+  </tr>`;
+}
+
+// 会话级筛选在前端完成:数据已在内存,不需要后端查询参数
+const TF = { name: "", status: "all", src: "all" };
+function filteredToolStats() {
+  const kw = TF.name.toLowerCase();
+  return buildToolStats().filter(r =>
+    (!kw || r.name.toLowerCase().includes(kw)) &&
+    (TF.status === "all" || r[TF.status] > 0) &&
+    (TF.src === "all" || r.srcClass === TF.src));
+}
+
+function renderTools() {
+  const rows = filteredToolStats();
+  const sum = k => rows.reduce((n, r) => n + r[k], 0);
+  const total = sum("calls"), okN = sum("ok"), errN = sum("err"), unN = sum("unseen");
+  document.getElementById("tf-summary").innerHTML =
+    `<div class="stat"><div class="k">调用</div><div class="v">${total}</div></div>
+     <div class="stat"><div class="k">成功</div><div class="v" style="color:var(--ok)">${okN}</div></div>
+     <div class="stat"><div class="k">失败</div><div class="v" style="color:var(--err)">${errN}</div></div>
+     <div class="stat"><div class="k">结果未见</div><div class="v" style="color:var(--muted)">${unN}</div></div>
+     <div class="stat"><div class="k">工具种类</div><div class="v">${rows.length}</div></div>`;
+  document.getElementById("tf-table").innerHTML = rows.length
+    ? `<table class="tt" style="margin-top:12px">
+        <thead><tr><th>工具</th><th>去向</th><th>调用</th><th>状态分布</th><th>成功率</th><th>间隔(近似)</th><th>发起轮次</th></tr></thead>
+        <tbody>${rows.map(toolRowHTML).join("")}</tbody>
+      </table>`
+    : `<div class="empty">没有匹配的调用</div>`;
+}
+
+function toolsViewHTML() {
+  return `<div class="session card">
+    <div class="id">工具调用 · 本会话</div>
+    <div class="meta">会话级聚合;间隔为轮间近似(含客户端执行与人的思考时间),「结果未见」不计入间隔。跨会话的全局筛选待后续。</div>
+    <div class="filters">
+      <input id="tf-name" placeholder="按工具名过滤" autocomplete="off">
+      <div class="seg" id="tf-status">
+        <button data-v="all" class="on">全部状态</button>
+        <button data-v="ok">成功</button>
+        <button data-v="err">失败</button>
+        <button data-v="unseen">未见</button>
+      </div>
+      <div class="seg" id="tf-src">
+        <button data-v="all" class="on">全部来源</button>
+        <button data-v="local">内置</button>
+        <button data-v="mcp">MCP</button>
+      </div>
+    </div>
+    <div class="stats" id="tf-summary"></div>
+    <div id="tf-table"></div>
+  </div>`;
+}
+
+// 会话列表:跨会话入口。行内不含轮次数(推断成本随会话数放大),轮次数在详情页给出
+function sessionRowsHTML(list) {
+  return list.map(s => `<tr class="${s.current ? "cur link" : ""}" ${s.current ? 'data-sid="' + esc(s.id) + '"' : ""}>
+    <td class="tname">${esc(s.id)}${s.current ? ' <span class="chip" style="margin-left:6px">完整数据</span>' : ""}</td>
+    <td><span class="src">${esc(s.source)}</span> <span style="color:var(--muted);font-size:11.5px">${esc(s.note)}</span></td>
+    <td>${s.first_seen}</td>
+    <td>${s.last_seen}</td>
+    <td>${s.steps}</td>
+    <td>${s.requests}</td>
+    <td>${fmtK(s.usage.in)} / ${fmtK(s.usage.out)} / ${fmtK(s.usage.cache)}</td>
+  </tr>`).join("");
+}
+
+function sessionsViewHTML() {
+  return `<div class="session card">
+    <div class="id">会话列表</div>
+    <div class="meta">跨会话入口:按 client key 隔离;<b>不含轮次数</b>——推断轮次要对每个会话做比对与首行解析,成本随会话数线性放大,轮次数由详情页给出</div>
+    <div class="filters">
+      <input id="sf-q" placeholder="按 session id 过滤" autocomplete="off">
+      <span class="chip">时间范围与 client key 过滤见 spec</span>
+    </div>
+    <table class="tt" style="margin-top:12px">
+      <thead><tr><th>session</th><th>判定</th><th>首见</th><th>末见</th><th>steps</th><th>请求</th><th>in / out / cache</th></tr></thead>
+      <tbody id="sf-body">${sessionRowsHTML(SESSIONS)}</tbody>
+    </table>
+  </div>`;
+}
+
+function renderSessions() {
+  const q = (document.getElementById("sf-q").value || "").trim().toLowerCase();
+  const list = SESSIONS.filter(s => !q || s.id.toLowerCase().includes(q));
+  document.getElementById("sf-body").innerHTML = list.length
+    ? sessionRowsHTML(list)
+    : `<tr><td colspan="7" class="empty">没有匹配的会话</td></tr>`;
+}
+
+document.getElementById("app").innerHTML = `
+  <div class="tabs">
+    <button class="tab active" data-view="trace">轨迹</button>
+    <button class="tab" data-view="sessions">会话</button>
+    <button class="tab" data-view="tools">工具</button>
+  </div>
+  <div id="view-sessions" hidden>${sessionsViewHTML()}</div>
+  <div id="view-trace">
+  <div class="session card">
+    <div class="id">${esc(SESSION.id)}</div>
+    <div class="meta">${sessionMeta()} · ${SESSION.first_seen} → ${SESSION.last_seen}(跨度 ${spanLabel()})</div>
+    <div class="stats">
+      <div class="stat"><div class="k">turns</div><div class="v">${SESSION.turns.length}</div></div>
+      <div class="stat"><div class="k">steps</div><div class="v">${TOTAL_STEPS}</div></div>
+      <div class="stat"><div class="k">in</div><div class="v">${fmtK(SESSION.usage.in)}</div></div>
+      <div class="stat"><div class="k">out</div><div class="v">${fmtK(SESSION.usage.out)}</div></div>
+      <div class="stat"><div class="k">cache</div><div class="v">${fmtK(SESSION.usage.cache)}</div></div>
+      <div class="stat"><div class="k">avg 延迟</div><div class="v">${fmtMs(SESSION.latency.avg_ms)}</div></div>
+      <div class="stat"><div class="k">max 延迟</div><div class="v">${fmtMs(SESSION.latency.max_ms)}</div></div>
+    </div>
+  </div>
+  ${SESSION.turns.map((t, i) => turnHTML(t, i === 3)).join("")}
+  </div>
+  <div id="view-tools" hidden>${toolsViewHTML()}</div>
+`;
+
+// tab 切换:轨迹 / 会话 / 工具
+const VIEWS = ["trace", "sessions", "tools"];
+function switchTab(view) {
+  document.querySelectorAll(".tab").forEach(x => x.classList.toggle("active", x.dataset.view === view));
+  VIEWS.forEach(v => { document.getElementById("view-" + v).hidden = v !== view; });
+}
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.addEventListener("click", () => switchTab(tab.dataset.view));
+});
+
+// 会话列表:搜索过滤 + 只有带完整数据的会话可点进轨迹
+document.getElementById("sf-q").addEventListener("input", renderSessions);
+document.getElementById("sf-body").addEventListener("click", e => {
+  if (e.target.closest("tr[data-sid]")) switchTab("trace");
+});
+renderSessions();
+
+// 工具视图筛选:纯前端过滤(会话级数据已在内存)
+document.getElementById("tf-name").addEventListener("input", e => { TF.name = e.target.value.trim(); renderTools(); });
+document.querySelectorAll("#tf-status button").forEach(b => b.addEventListener("click", () => {
+  TF.status = b.dataset.v;
+  document.querySelectorAll("#tf-status button").forEach(x => x.classList.toggle("on", x === b));
+  renderTools();
+}));
+document.querySelectorAll("#tf-src button").forEach(b => b.addEventListener("click", () => {
+  TF.src = b.dataset.v;
+  document.querySelectorAll("#tf-src button").forEach(x => x.classList.toggle("on", x === b));
+  renderTools();
+}));
+renderTools();
+
+// 交互:turn 折叠;step 首次展开时模拟"懒加载"(骨架已在,明细后到)
+document.querySelectorAll(".turn > .head").forEach(head => {
+  head.addEventListener("click", () => {
+    const turn = head.parentElement;
+    turn.classList.toggle("open");
+    head.querySelector(".caret").textContent = turn.classList.contains("open") ? "▾" : "▸";
+  });
+});
+
+document.querySelectorAll(".step").forEach(stepEl => {
+  const head = stepEl.querySelector(".head");
+  const detail = stepEl.querySelector(".detail");
+  let loaded = false;
+  head.addEventListener("click", () => {
+    const open = stepEl.classList.toggle("open");
+    head.querySelector(".caret").textContent = open ? "▾" : "▸";
+    if (!open || loaded) return;
+    const seq = Number(stepEl.dataset.seq);
+    const step = SESSION.turns.flatMap(t => t.steps).find(s => s.seq === seq);
+    detail.innerHTML = '<div class="loading">解压该步快照、解析新增行…' +
+      (step.compress ? ' 压缩事件需额外解压上一条快照(step ' + step.compress.before_seq + ')' : '') + '</div>';
+    setTimeout(() => { detail.innerHTML = detailHTML(step); loaded = true; }, 220);
+  });
+});
+</script>
+</body>
+</html>
