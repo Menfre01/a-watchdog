@@ -47,3 +47,4 @@ __pycache__/
 
 # OpenSpec(本地变更提案与 specs,不入仓库)
 openspec/
+.gstack/
