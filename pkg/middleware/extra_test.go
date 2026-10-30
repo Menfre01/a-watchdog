@@ -55,25 +55,25 @@ func TestSnapshotRecord_Branches(t *testing.T) {
 	// 内部错误 → 502 + kind=internal;无 route 且请求体不可解析 → 模型为空。
 	ctx := &chain.Context{Protocol: "openai-chat", StartedAt: time.Now(), Body: []byte(`not-json`)}
 	p := snapshotRecord(ctx, errors.New("boom"))
-	if p.StatusCode != http.StatusBadGateway || p.ErrorKind == nil || *p.ErrorKind != "internal" {
+	if p.params.StatusCode != http.StatusBadGateway || p.params.ErrorKind == nil || *p.params.ErrorKind != "internal" {
 		t.Fatalf("internal record = %+v", p)
 	}
-	if p.RequestedModel != "" {
-		t.Fatalf("RequestedModel = %q, want empty", p.RequestedModel)
+	if p.params.RequestedModel != "" {
+		t.Fatalf("RequestedModel = %q, want empty", p.params.RequestedModel)
 	}
 
 	// 受控拒绝 → 状态与 kind 取自 RejectError。
 	rej := &chain.RejectError{StatusCode: http.StatusTooManyRequests, ContentType: "application/json", Body: []byte(`{}`), Kind: "rate_limit"}
 	p = snapshotRecord(ctx, rej)
-	if p.StatusCode != http.StatusTooManyRequests || p.ErrorKind == nil || *p.ErrorKind != "rate_limit" {
+	if p.params.StatusCode != http.StatusTooManyRequests || p.params.ErrorKind == nil || *p.params.ErrorKind != "rate_limit" {
 		t.Fatalf("reject record = %+v", p)
 	}
 
 	// 无 route 但请求体可解析 → 记录请求模型(尽力而为)。
 	ctx2 := &chain.Context{Protocol: "openai-chat", StartedAt: time.Now(), Body: []byte(`{"model":"m1"}`)}
 	p = snapshotRecord(ctx2, &chain.RejectError{StatusCode: 404, Body: []byte(`{}`), Kind: "model_not_found"})
-	if p.RequestedModel != "m1" {
-		t.Fatalf("RequestedModel = %q, want m1", p.RequestedModel)
+	if p.params.RequestedModel != "m1" {
+		t.Fatalf("RequestedModel = %q, want m1", p.params.RequestedModel)
 	}
 }
 
@@ -87,7 +87,7 @@ func TestSnapshotRecord_StreamInterrupted(t *testing.T) {
 		Upstream:        up,
 	}
 	p := snapshotRecord(ctx, errors.New("read upstream: unexpected EOF"))
-	if p.StatusCode != http.StatusOK || p.ErrorKind == nil || *p.ErrorKind != "stream_interrupted" {
+	if p.params.StatusCode != http.StatusOK || p.params.ErrorKind == nil || *p.params.ErrorKind != "stream_interrupted" {
 		t.Fatalf("stream interrupted record = %+v, want 200/stream_interrupted", p)
 	}
 }
