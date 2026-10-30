@@ -1,0 +1,40 @@
+schema: spec-driven
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+# Add your tech stack, conventions, style guides, domain knowledge, etc.
+# Example:
+#   context: |
+#     Tech stack: TypeScript, React, Node.js
+#     We use conventional commits
+#     Domain: e-commerce platform
+
+context: |
+  项目:ds-context —— 面向 agent(Claude Code / Codex 等)的 LLM 网关与上下文轨迹分析服务;
+  单二进制 + SQLite,本地个人使用,无外部署状态。
+  技术栈:Go 1.25(标准库优先);第三方依赖仅 modernc.org/sqlite、go-cmp;前端 web/(pnpm 构建后嵌入);
+  sqlc 生成查询(特殊路径手写);迁移由 pkg/config/migrations 内嵌、按 user_version 依次应用。
+  约定:先提案后实现、openspec/specs 为唯一事实源;错误 wrap 用 %w;注释中文;Conventional Commits;禁止自动提交;
+  输出遵循受控中文(ASD-STE100 中文对应物,见 AGENTS.md 输出规范)。
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing

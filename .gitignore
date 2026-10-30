@@ -45,6 +45,7 @@ __pycache__/
 # Claude Code(本地命令与 skills)
 .claude/
 
-# OpenSpec(本地变更提案与 specs,不入仓库)
-openspec/
+# gstack(本地工具目录)
 .gstack/
+
+# 注:OpenSpec 规范是唯一事实源,提案与归档一并入库,故不设忽略规则。
