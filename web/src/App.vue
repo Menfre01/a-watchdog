@@ -2,18 +2,20 @@
 import { onMounted, ref } from 'vue'
 import { api } from './api'
 import Login from './views/Login.vue'
+import Observability from './views/Observability.vue'
 import Providers from './views/Providers.vue'
 import Models from './views/Models.vue'
 import Keys from './views/Keys.vue'
 import Settings from './views/Settings.vue'
 
-type Tab = 'providers' | 'models' | 'keys' | 'settings'
+type Tab = 'observability' | 'providers' | 'models' | 'keys' | 'settings'
 
 const authed = ref(false)
 const checking = ref(true)
-const tab = ref<Tab>('providers')
+const tab = ref<Tab>('observability')
 
 const tabs: { id: Tab; label: string }[] = [
+  { id: 'observability', label: '可观测 (Observability)' },
   { id: 'providers', label: '接入 (Providers)' },
   { id: 'models', label: '模型目录 (Models)' },
   { id: 'keys', label: '客户端密钥 (Keys)' },
@@ -62,7 +64,8 @@ onMounted(check)
       <button class="nav-btn logout" @click="logout">退出登录</button>
     </aside>
     <main class="main">
-      <Providers v-if="tab === 'providers'" />
+      <Observability v-if="tab === 'observability'" />
+      <Providers v-else-if="tab === 'providers'" />
       <Models v-else-if="tab === 'models'" />
       <Keys v-else-if="tab === 'keys'" />
       <Settings v-else />
