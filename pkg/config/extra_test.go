@@ -83,7 +83,7 @@ func TestStore_ClosedErrors(t *testing.T) {
 	_, err13 := s.ListSettings(ctx)
 	_, err14 := s.GetSetting(ctx, "k")
 	err15 := s.UpsertSetting(ctx, "k", "v")
-	err16 := s.InsertRequests(ctx, []db.InsertRequestParams{{}})
+	_, err16 := s.InsertRequests(ctx, []db.InsertRequestParams{{}})
 	_, err17 := s.CountRequests(ctx)
 	_, err18 := s.ListRecentRequests(ctx, 1)
 	err19 := s.Refresh(ctx)

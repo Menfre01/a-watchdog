@@ -7,6 +7,14 @@ INSERT INTO requests (
     usage_in, usage_out, usage_cache, error_kind
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
+-- name: InsertRequestReturningID :one
+INSERT INTO requests (
+    ts, client_key_id, client_key_name, protocol, requested_model,
+    provider_id, upstream_model, status_code, latency_ms, stream,
+    usage_in, usage_out, usage_cache, error_kind
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id;
+
 -- name: CountRequests :one
 SELECT COUNT(*) FROM requests;
 

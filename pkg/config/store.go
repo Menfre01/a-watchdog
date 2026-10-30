@@ -7,7 +7,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strings"
 	"sync/atomic"
 
 	"ds-context/pkg/config/db"
@@ -298,47 +297,33 @@ func (s *Store) UpsertSetting(ctx context.Context, key, value string) error {
 
 // ---- requests ----
 
-// insertRequestsChunk 是批量插入的分块大小:200 行 × 14 列 = 2800 个占位符,
-// 远低于 SQLite 变量数上限。
-const insertRequestsChunk = 200
+// InsertRequests 在单事务内逐条写入请求记录,并返回与入参一一对应的自增 id。
+// 逐条 `INSERT ... RETURNING id` 消除了「按 id 倒序回取」对写入时序的隐式依赖,
+// 也让记录 id 与捕捉队列元素一一对应(design.md D2)。
+func (s *Store) InsertRequests(ctx context.Context, reqs []db.InsertRequestParams) ([]int64, error) {
+	if len(reqs) == 0 {
+		return nil, nil
+	}
+	tx, err := s.sqlDB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("config: begin requests tx: %w", err)
+	}
+	// 提交成功后 Rollback 为无操作,此处显式忽略其错误。
+	defer func() { _ = tx.Rollback() }()
 
-// insertRequestsCols 是 requests 表批量插入的列清单。
-const insertRequestsCols = "ts, client_key_id, client_key_name, protocol, requested_model, " +
-	"provider_id, upstream_model, status_code, latency_ms, stream, " +
-	"usage_in, usage_out, usage_cache, error_kind"
-
-// InsertRequests 批量写入请求记录(手写批量 INSERT;特殊路径按 design.md D4 绕过 sqlc)。
-func (s *Store) InsertRequests(ctx context.Context, reqs []db.InsertRequestParams) error {
-	for start := 0; start < len(reqs); start += insertRequestsChunk {
-		end := min(start+insertRequestsChunk, len(reqs))
-		if err := s.insertRequestsPart(ctx, reqs[start:end]); err != nil {
-			return err
+	qtx := s.q.WithTx(tx)
+	ids := make([]int64, 0, len(reqs))
+	for _, r := range reqs {
+		id, err := qtx.InsertRequestReturningID(ctx, db.InsertRequestReturningIDParams(r))
+		if err != nil {
+			return nil, fmt.Errorf("config: insert request: %w", err)
 		}
+		ids = append(ids, id)
 	}
-	return nil
-}
-
-// insertRequestsPart 写入一批(不超过 insertRequestsChunk 行)记录。
-func (s *Store) insertRequestsPart(ctx context.Context, reqs []db.InsertRequestParams) error {
-	var q strings.Builder
-	q.WriteString("INSERT INTO requests (")
-	q.WriteString(insertRequestsCols)
-	q.WriteString(") VALUES ")
-	args := make([]any, 0, len(reqs)*14)
-	for i, r := range reqs {
-		if i > 0 {
-			q.WriteString(",")
-		}
-		q.WriteString("(?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
-		args = append(args,
-			r.Ts, r.ClientKeyID, r.ClientKeyName, r.Protocol, r.RequestedModel,
-			r.ProviderID, r.UpstreamModel, r.StatusCode, r.LatencyMs, r.Stream,
-			r.UsageIn, r.UsageOut, r.UsageCache, r.ErrorKind)
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("config: commit requests: %w", err)
 	}
-	if _, err := s.sqlDB.ExecContext(ctx, q.String(), args...); err != nil {
-		return fmt.Errorf("config: insert requests: %w", err)
-	}
-	return nil
+	return ids, nil
 }
 
 // CountRequests 返回请求记录总数(控制台概览与测试用)。
@@ -357,4 +342,150 @@ func (s *Store) ListRecentRequests(ctx context.Context, limit int64) ([]db.Reque
 		return nil, fmt.Errorf("config: list recent requests: %w", err)
 	}
 	return rows, nil
+}
+
+// ---- 轨迹(原始层与事实层,见 design.md D1) ----
+
+// TraceSnapshot 是一次请求的规范化快照参数及其派生列。
+// Seq 由调用方按会话递增(会话内自 1 起);SessionSource/SessionNote 记录判定来源与理由。
+type TraceSnapshot struct {
+	SessionID     string
+	SessionSource string
+	SessionNote   string
+	Seq           int64
+	Ts            string
+	NdjsonGzip    []byte
+	LineHashes    []byte
+	LineSizes     []byte
+}
+
+// InsertRequestBody 写入原始层:请求行、脱敏后的入向请求头与 body 原文(gzip)。
+func (s *Store) InsertRequestBody(ctx context.Context, arg db.InsertRequestBodyParams) error {
+	if err := s.q.InsertRequestBody(ctx, arg); err != nil {
+		return fmt.Errorf("config: insert request body: %w", err)
+	}
+	return nil
+}
+
+// InsertSnapshot 写入事实层的一条规范化快照。
+func (s *Store) InsertSnapshot(ctx context.Context, arg db.InsertSnapshotParams) error {
+	if err := s.q.InsertSnapshot(ctx, arg); err != nil {
+		return fmt.Errorf("config: insert snapshot: %w", err)
+	}
+	return nil
+}
+
+// SaveTrace 在单个事务内写入一次请求的轨迹:原始层必有,快照可选(请求体不可解析、
+// 辅助端点时不产快照)。轨迹与请求记录是两个独立事务——轨迹失败只回滚该请求的轨迹,
+// 已提交的记录不受影响(design.md D2 的失败隔离)。
+func (s *Store) SaveTrace(ctx context.Context, body db.InsertRequestBodyParams, snap *TraceSnapshot) error {
+	tx, err := s.sqlDB.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("config: begin trace tx: %w", err)
+	}
+	// 提交成功后 Rollback 为无操作,此处显式忽略其错误。
+	defer func() { _ = tx.Rollback() }()
+
+	qtx := s.q.WithTx(tx)
+	if err := qtx.InsertRequestBody(ctx, body); err != nil {
+		return fmt.Errorf("config: insert request body: %w", err)
+	}
+	if snap != nil {
+		if err := qtx.InsertSnapshot(ctx, db.InsertSnapshotParams{
+			RequestID:     body.RequestID,
+			SessionID:     snap.SessionID,
+			SessionSource: snap.SessionSource,
+			SessionNote:   snap.SessionNote,
+			Seq:           snap.Seq,
+			Ts:            snap.Ts,
+			NdjsonGzip:    snap.NdjsonGzip,
+			LineHashes:    snap.LineHashes,
+			LineSizes:     snap.LineSizes,
+		}); err != nil {
+			return fmt.Errorf("config: insert snapshot: %w", err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("config: commit trace: %w", err)
+	}
+	return nil
+}
+
+// NextSnapshotSeq 返回某会话的下一个序号(自 1 起);捕捉侧冷启动时用它补齐序号。
+func (s *Store) NextSnapshotSeq(ctx context.Context, sessionID string) (int64, error) {
+	seq, err := s.q.NextSnapshotSeq(ctx, sessionID)
+	if err != nil {
+		return 0, fmt.Errorf("config: next snapshot seq: %w", err)
+	}
+	return seq, nil
+}
+
+// ListSnapshotsBySession 按序号返回一个会话的全部快照(含压缩后的 BLOB)。
+func (s *Store) ListSnapshotsBySession(ctx context.Context, sessionID string) ([]db.Snapshot, error) {
+	rows, err := s.q.ListSnapshotsBySession(ctx, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("config: list snapshots: %w", err)
+	}
+	return rows, nil
+}
+
+// ListSessionSteps 返回一个会话的全部 step:快照派生列与请求记录字段一次取齐,
+// 供轨迹骨架与详情组装(按序号升序)。
+func (s *Store) ListSessionSteps(ctx context.Context, sessionID string) ([]db.ListSessionStepsRow, error) {
+	rows, err := s.q.ListSessionSteps(ctx, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("config: list session steps: %w", err)
+	}
+	return rows, nil
+}
+
+// SessionSummary 是会话列表的一行(见 design.md D6)。
+// Steps 即该会话的请求数:会话归属由快照承载,二者恒等。
+type SessionSummary struct {
+	SessionID     string
+	SessionSource string
+	SessionNote   string
+	FirstSeen     string
+	LastSeen      string
+	Steps         int64
+	UsageIn       int64
+	UsageOut      int64
+	UsageCache    int64
+}
+
+// ListSessionSummaries 返回会话列表:prefix 为 session_id 前缀、from/to 为时间范围,
+// 三者留空表示不过滤;过滤语义为「会话内有任一步落在时间范围内即入选」。
+func (s *Store) ListSessionSummaries(ctx context.Context, prefix, from, to string, rowLimit int64) ([]SessionSummary, error) {
+	rows, err := s.q.ListSessionSummaries(ctx, db.ListSessionSummariesParams{
+		Prefix:   nullableString(prefix),
+		FromTs:   nullableString(from),
+		ToTs:     nullableString(to),
+		RowLimit: rowLimit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("config: list session summaries: %w", err)
+	}
+	out := make([]SessionSummary, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, SessionSummary{
+			SessionID:     r.SessionID,
+			SessionSource: r.SessionSource,
+			SessionNote:   r.SessionNote,
+			FirstSeen:     r.FirstSeen,
+			LastSeen:      r.LastSeen,
+			Steps:         r.Steps,
+			UsageIn:       r.UsageIn,
+			UsageOut:      r.UsageOut,
+			UsageCache:    r.UsageCache,
+		})
+	}
+	return out, nil
+}
+
+// nullableString 把空串转成 SQL NULL:这些过滤参数里空串表示「不过滤」。
+func nullableString(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
 }

@@ -175,11 +175,11 @@ func TestStore_InsertRequests(t *testing.T) {
 	ctx := context.Background()
 
 	// 空批为无操作。
-	if err := s.InsertRequests(ctx, nil); err != nil {
+	if _, err := s.InsertRequests(ctx, nil); err != nil {
 		t.Fatalf("InsertRequests(nil) error = %v", err)
 	}
 
-	// 跨越分块边界的批量写入(450 > 200)。
+	// 较大批次的写入(450 条):逐条 INSERT ... RETURNING id,验证批量路径可用。
 	reqs := make([]db.InsertRequestParams, 0, 450)
 	for i := 0; i < 450; i++ {
 		reqs = append(reqs, db.InsertRequestParams{
@@ -194,7 +194,7 @@ func TestStore_InsertRequests(t *testing.T) {
 	}
 	in, out := int64(10), int64(20)
 	reqs[0].UsageIn, reqs[0].UsageOut = &in, &out
-	if err := s.InsertRequests(ctx, reqs); err != nil {
+	if _, err := s.InsertRequests(ctx, reqs); err != nil {
 		t.Fatalf("InsertRequests() error = %v", err)
 	}
 

@@ -53,7 +53,30 @@ type Request struct {
 	ErrorKind      *string
 }
 
+type RequestBody struct {
+	RequestID int64
+	Method    string
+	Path      string
+	Query     string
+	BodyGzip  []byte
+	Headers   string
+	CreatedAt string
+}
+
 type Setting struct {
 	Key   string
 	Value string
+}
+
+type Snapshot struct {
+	ID            int64
+	RequestID     int64
+	SessionID     string
+	SessionSource string
+	SessionNote   string
+	Seq           int64
+	Ts            string
+	NdjsonGzip    []byte
+	LineHashes    []byte
+	LineSizes     []byte
 }

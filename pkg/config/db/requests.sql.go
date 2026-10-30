@@ -67,6 +67,54 @@ func (q *Queries) InsertRequest(ctx context.Context, arg InsertRequestParams) er
 	return err
 }
 
+const insertRequestReturningID = `-- name: InsertRequestReturningID :one
+INSERT INTO requests (
+    ts, client_key_id, client_key_name, protocol, requested_model,
+    provider_id, upstream_model, status_code, latency_ms, stream,
+    usage_in, usage_out, usage_cache, error_kind
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id
+`
+
+type InsertRequestReturningIDParams struct {
+	Ts             string
+	ClientKeyID    *int64
+	ClientKeyName  string
+	Protocol       string
+	RequestedModel string
+	ProviderID     *int64
+	UpstreamModel  *string
+	StatusCode     int64
+	LatencyMs      int64
+	Stream         int64
+	UsageIn        *int64
+	UsageOut       *int64
+	UsageCache     *int64
+	ErrorKind      *string
+}
+
+func (q *Queries) InsertRequestReturningID(ctx context.Context, arg InsertRequestReturningIDParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, insertRequestReturningID,
+		arg.Ts,
+		arg.ClientKeyID,
+		arg.ClientKeyName,
+		arg.Protocol,
+		arg.RequestedModel,
+		arg.ProviderID,
+		arg.UpstreamModel,
+		arg.StatusCode,
+		arg.LatencyMs,
+		arg.Stream,
+		arg.UsageIn,
+		arg.UsageOut,
+		arg.UsageCache,
+		arg.ErrorKind,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const listRecentRequests = `-- name: ListRecentRequests :many
 SELECT id, ts, client_key_id, client_key_name, protocol, requested_model, provider_id, upstream_model, status_code, latency_ms, stream, usage_in, usage_out, usage_cache, error_kind FROM requests ORDER BY id DESC LIMIT ?
 `
