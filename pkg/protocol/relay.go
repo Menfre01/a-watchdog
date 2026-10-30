@@ -209,9 +209,10 @@ func anthropicSSEUsage(data []byte, u *Usage) {
 func openaiSSEUsage(data []byte, u *Usage) {
 	var chunk struct {
 		Usage *struct {
-			PromptTokens        *int64 `json:"prompt_tokens"`
-			CompletionTokens    *int64 `json:"completion_tokens"`
-			PromptTokensDetails *struct {
+			PromptTokens         *int64 `json:"prompt_tokens"`
+			CompletionTokens     *int64 `json:"completion_tokens"`
+			PromptCacheHitTokens *int64 `json:"prompt_cache_hit_tokens"`
+			PromptTokensDetails  *struct {
 				CachedTokens *int64 `json:"cached_tokens"`
 			} `json:"prompt_tokens_details"`
 		} `json:"usage"`
@@ -228,8 +229,12 @@ func openaiSSEUsage(data []byte, u *Usage) {
 	if chunk.Usage.CompletionTokens != nil {
 		u.Out = chunk.Usage.CompletionTokens
 	}
+	// 缓存读命中:OpenAI 官方在 prompt_tokens_details.cached_tokens,
+	// DeepSeek 在顶层 prompt_cache_hit_tokens(两者取其一)。
 	if d := chunk.Usage.PromptTokensDetails; d != nil && d.CachedTokens != nil {
 		u.mergeCache(d.CachedTokens, nil)
+	} else if chunk.Usage.PromptCacheHitTokens != nil {
+		u.mergeCache(chunk.Usage.PromptCacheHitTokens, nil)
 	}
 }
 
@@ -275,7 +280,9 @@ type usageFields struct {
 	CacheReadInputTokens     *int64               `json:"cache_read_input_tokens"`
 	CacheCreationInputTokens *int64               `json:"cache_creation_input_tokens"`
 	CacheCreation            *cacheCreationDetail `json:"cache_creation"`
-	PromptTokensDetails      *struct {
+	// DeepSeek 在顶层用 prompt_cache_hit_tokens 报告缓存读命中。
+	PromptCacheHitTokens *int64 `json:"prompt_cache_hit_tokens"`
+	PromptTokensDetails  *struct {
 		CachedTokens *int64 `json:"cached_tokens"`
 	} `json:"prompt_tokens_details"`
 }
@@ -307,9 +314,15 @@ func parseJSONUsage(body []byte, u *Usage) {
 	if creation == nil {
 		creation = use.CacheCreationInputTokens
 	}
-	// Anthropic 的读写分量优先;两者都缺失时退回 OpenAI 的缓存读命中数。
-	if read == nil && creation == nil && use.PromptTokensDetails != nil {
-		read = use.PromptTokensDetails.CachedTokens
+	// Anthropic 的读写分量优先;两者都缺失时退回缓存读命中数:
+	// OpenAI 官方在 prompt_tokens_details.cached_tokens,DeepSeek 在 prompt_cache_hit_tokens。
+	if read == nil && creation == nil {
+		switch {
+		case use.PromptTokensDetails != nil && use.PromptTokensDetails.CachedTokens != nil:
+			read = use.PromptTokensDetails.CachedTokens
+		case use.PromptCacheHitTokens != nil:
+			read = use.PromptCacheHitTokens
+		}
 	}
 	u.mergeCache(read, creation)
 }

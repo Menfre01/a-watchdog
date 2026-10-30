@@ -83,6 +83,36 @@ func TestRegression_AnthropicCacheCreationDetailObjectNonStream(t *testing.T) {
 	checkInt64(t, "Cache", u.Cache, 6) // 读 1 + 写 3 + 写 2
 }
 
+// TestRegression_DeepSeekCacheHitTokens 覆盖 DeepSeek 的缓存命中字段名。
+//
+// 根因:缓存读命中数各家用不同的键——Anthropic 用 cache_read_input_tokens,
+// OpenAI 官方用 prompt_tokens_details.cached_tokens,而 DeepSeek 在顶层用
+// prompt_cache_hit_tokens。只认前两种时,DeepSeek 上游的缓存用量会一直是空。
+func TestRegression_DeepSeekCacheHitTokens(t *testing.T) {
+	// 流式:末块带顶层 prompt_cache_hit_tokens。
+	stream := "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":100,\"completion_tokens\":50,\"prompt_cache_hit_tokens\":80}}\n\n"
+	obs := NewObserver("openai-chat", "text/event-stream")
+	obs.Write([]byte(stream))
+	u := obs.Usage()
+	checkInt64(t, "In", u.In, 100)
+	checkInt64(t, "Out", u.Out, 50)
+	checkInt64(t, "Cache", u.Cache, 80)
+
+	// 非流式:同一字段名。
+	obs = NewObserver("openai-chat", "application/json")
+	obs.Write([]byte(`{"usage":{"prompt_tokens":100,"completion_tokens":50,"prompt_cache_hit_tokens":80}}`))
+	checkInt64(t, "Cache", obs.Usage().Cache, 80)
+}
+
+// TestRegression_OpenAIDetailsWinsOverDeepSeekField 覆盖两个字段同时出现时的优先级:
+// OpenAI 官方的明细字段优先,DeepSeek 的顶层字段兜底。
+func TestRegression_OpenAIDetailsWinsOverDeepSeekField(t *testing.T) {
+	body := `{"usage":{"prompt_tokens":100,"prompt_tokens_details":{"cached_tokens":70},"prompt_cache_hit_tokens":80}}`
+	obs := NewObserver("openai-chat", "application/json")
+	obs.Write([]byte(body))
+	checkInt64(t, "Cache", obs.Usage().Cache, 70)
+}
+
 // TestRegression_AnthropicCacheCreationNonObjectIgnored 覆盖字段类型不符时的隔离。
 //
 // 根因:实现方可能把缓存写入量误发在 cache_creation 键下(数字而非明细对象)。
