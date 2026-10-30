@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"ds-context/pkg/config"
+	"ds-context/pkg/trace"
 )
 
 // probeTimeout 是「测试连接」的最长等待时间。
@@ -22,6 +23,8 @@ type Admin struct {
 	secret   []byte
 	logger   *slog.Logger
 	client   *http.Client
+	// traces 缓存会话级推断结果:键含最后一轮 request_id,有新轮次即自动失效。
+	traces *trace.Cache[*sessionAnalysis]
 }
 
 // New 创建管理面:secret 用于会话签名(启动时随机生成,重启后旧会话失效)。
@@ -40,6 +43,7 @@ func New(store *config.Store, password string, logger *slog.Logger) (*Admin, err
 			// 探测同样禁止跟随重定向:避免凭据经 3xx 外泄到其他主机。
 			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 		},
+		traces: trace.NewCache[*sessionAnalysis](trace.CacheDefaultTTL),
 	}, nil
 }
 
@@ -73,6 +77,12 @@ func (a *Admin) Handler() http.Handler {
 	// settings(全局配置)。
 	mux.HandleFunc("GET /console/api/settings", a.guard(a.handleListSettings))
 	mux.HandleFunc("PUT /console/api/settings/{key}", a.csrfGuard(a.guard(a.handleUpsertSetting)))
+
+	// 可观测(轨迹):全部只读,不修改任何数据。
+	mux.HandleFunc("GET /console/api/traces", a.guard(a.handleListTraces))
+	mux.HandleFunc("GET /console/api/traces/{session_id}", a.guard(a.handleTraceDetail))
+	mux.HandleFunc("GET /console/api/traces/{session_id}/digest", a.guard(a.handleTraceDigest))
+	mux.HandleFunc("GET /console/api/traces/{session_id}/{seq}", a.guard(a.handleTraceStep))
 
 	// 内嵌前端(SPA 回退)。
 	mux.Handle("/console/", a.staticHandler())

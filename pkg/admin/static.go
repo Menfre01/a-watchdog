@@ -36,11 +36,18 @@ func newStaticHandler(fsys fs.FS) http.Handler {
 				fmt.Fprintln(w, "控制台前端产物未构建:请运行 make build(或在 web/ 下执行 pnpm build)")
 				return
 			}
+			// index.html 不带内容哈希,必须每次校验:否则浏览器启发式缓存它,
+			// 网关升级后仍加载旧的 JS 资源(新产物已换名),界面出现"改了没生效"。
+			w.Header().Set("Cache-Control", "no-cache")
 			// SPA 路由回退到 index.html。
 			clone := r.Clone(r.Context())
 			clone.URL.Path = "/"
 			fileServer.ServeHTTP(w, clone)
 			return
+		}
+		// assets 下的文件名含内容哈希:内容变则名变,可长期缓存。
+		if strings.HasPrefix(rel, "/assets/") {
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 		}
 		clone := r.Clone(r.Context())
 		clone.URL.Path = rel
