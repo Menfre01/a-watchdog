@@ -10,7 +10,7 @@ STE_FILES ?=
 STE_BASELINE ?= 0
 BINARY    := bin/ds-context
 
-.PHONY: generate build run test lint lint-text clean
+.PHONY: generate build run test lint lint-text smoke clean
 
 # generate: 以 sqlc 从迁移与查询 SQL 生成类型安全代码(生成产物入库,勿手改)
 generate:
@@ -18,9 +18,12 @@ generate:
 	$(SQLC) generate
 
 # build: 构建前端(如已初始化)后编译单二进制到 bin/
+# 前端产物文件名带内容哈希,而 vite 不清空 outDir(目录内有 git 跟踪的占位文件),
+# 故构建前显式清理 assets:否则历次产物持续堆积并被 go:embed 打进二进制。
 build:
 	@if [ -f web/package.json ]; then \
 		echo ">> 构建前端 (web/)"; \
+		rm -rf pkg/admin/dist/assets; \
 		( cd web && pnpm install && pnpm build ); \
 	else \
 		echo ">> web/package.json 不存在,跳过前端构建"; \
@@ -30,6 +33,11 @@ build:
 # run: 本地运行,示例: make run ARGS="--listen 127.0.0.1:8080"
 run:
 	$(GO) run ./cmd/ds-context $(ARGS)
+
+# smoke:轨迹视图原型冒烟 —— 断言形态基准渲染出新形态,并与前端图例文案比对
+smoke:
+	@command -v node >/dev/null || { echo "smoke: 未找到 node"; exit 1; }
+	node scripts/trail-view-smoke.mjs
 
 # test: 运行全部测试
 test:

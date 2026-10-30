@@ -141,6 +141,7 @@ openspec/
 | 运行 | `make run` | | 多包 / 跨包 | `make test` |
 | 静态检查 | `make lint` | | 集成测试 | `make test-integration` |
 | 文字检查 | `make lint-text` | | | |
+| 原型冒烟 | `make smoke` | | | |
 | 清理 | `make clean` | | | |
 
 Makefile 建立前,过渡使用 `go build ./...` / `go test ./...` / `golangci-lint run`。

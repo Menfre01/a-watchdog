@@ -114,6 +114,7 @@
   .msg { display: flex; gap: 10px; padding: 7px 10px; border-top: 1px solid var(--line); }
   .msg:first-child { border-top: 0; }
   .msg .role { font-family: var(--mono); font-size: 11.5px; min-width: 74px; color: #475569; }
+  .msg .idx { font-family: var(--mono); font-size: 11px; color: #9ca3af; min-width: 34px; font-variant-numeric: tabular-nums; }
   .msg.user .role { color: var(--accent); }
   .msg .txt { font-family: var(--mono); font-size: 12px; white-space: pre-wrap; word-break: break-word; }
   .inherited { font-size: 12px; color: var(--muted); padding: 7px 10px; background: #fafbfc; border-bottom: 1px solid var(--line); }
@@ -154,6 +155,35 @@
   .cc-size { color: #9a3412; min-width: 132px; font-variant-numeric: tabular-nums; }
   .cc-text { color: #9b2c2c; }
   .cc-sum { padding: 7px 10px; border-top: 1px solid var(--line); background: #fffbf5; font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  /* 差异块:每块可独立折叠,块头给出类型与两侧行号范围 */
+  .hunk { border: 1px solid var(--line); border-radius: 8px; margin-bottom: 8px; overflow: hidden; }
+  .hunk > summary { display: flex; align-items: center; gap: 8px; padding: 7px 10px; cursor: pointer; background: #fbfcfd; list-style: none; }
+  .hunk > summary::-webkit-details-marker { display: none; }
+  .hunk > summary:hover { background: #f6f8fa; }
+  .hunk-kind { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 4px; border: 1px solid var(--line); color: #475569; background: #f1f5f9; }
+  .hunk-kind.delete { color: #b42318; background: #fdecea; border-color: #f6c9c4; }
+  .hunk-kind.insert { color: #127a4b; background: #e8f5ee; border-color: #c7e5d4; }
+  .hunk-kind.replace { color: #a16207; background: #fef9e7; border-color: #f0e0a8; }
+  .hunk .cmp { padding: 8px; border-top: 1px solid var(--line); }
+  .cmp-row .sz2 { min-width: 56px; color: #9ca3af; font-variant-numeric: tabular-nums; }
+  .cmp-row .sz { min-width: 62px; color: #9a3412; font-variant-numeric: tabular-nums; }
+  /* 统一 diff 视图:单栏,`-` 旧侧 / `+` 新侧,行首带行号与字节数 */
+  .udiff { border-top: 1px solid var(--line); font-size: 12px; font-family: var(--mono); max-height: 420px; overflow: auto; }
+  .uline { display: flex; align-items: baseline; gap: 8px; padding: 3px 10px; white-space: pre-wrap; word-break: break-word; }
+  .uline.del { background: #fdf3f3; }
+  .uline.add { background: #f1f8f4; }
+  .uline .sign { width: 10px; flex: none; font-weight: 700; }
+  .uline.del .sign { color: #b42318; }
+  .uline.add .sign { color: #127a4b; }
+  .uline .ln { min-width: 42px; flex: none; color: #9ca3af; font-variant-numeric: tabular-nums; }
+  .uline .txt { color: #334155; }
+  .hunk-range { font-size: 12px; color: #6b7280; font-family: var(--mono); }
+  /* 消息区的呈现切换:差异 / 新增消息(两者内容重叠,同时铺开会重复行号) */
+  .viewsw { display: inline-flex; border: 1px solid #d1d5db; border-radius: 6px; overflow: hidden; margin-left: 8px; vertical-align: middle; }
+  .viewsw button { border: 0; border-left: 1px solid #d1d5db; background: #fff; color: #6b7280; font-size: 11.5px; padding: 1px 9px; cursor: pointer; font-family: inherit; }
+  .viewsw button:first-child { border-left: 0; }
+  .viewsw button.on { background: #eef2ff; color: #27357a; font-weight: 600; }
+  .hint { font-size: 12px; color: #6b7280; background: #fafbfc; border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; margin-bottom: 6px; }
 
   /* tabs:轨迹 / 会话 / 工具(对齐 waku 的 Observability 分页) */
   .tabs { display: flex; gap: 6px; margin-bottom: 16px; }
@@ -169,8 +199,68 @@
   .tt .tname { font-family: var(--mono); font-weight: 600; }
   .src { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 0 7px; }
   .src.mcp { color: var(--infer); border-color: #e4dbff; background: #faf8ff; }
+
+  /* ---------- 图例 / 分类分布 / 时间轴 / 叙述(与实现同一套形态) ---------- */
+  .kinds { display: flex; flex-direction: column; gap: 6px; flex: 1 1 320px; min-width: 260px; margin-left: auto; }
+  .kinds-bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: #eef2f7; }
+  .kinds-bar .seg { display: block; height: 100%; }
+  .kinds-legend { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 11px; color: #475569; }
+  .kinds-legend .sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; }
+  /* 分布条的口径说明独占一行;图例条目的补充口径弱化显示 */
+  .kinds-note { flex: 1 0 100%; font-size: 11px; }
+  .legend-entry-note { color: #94a3b8; }
+  /* 分类配色:顺序固定(首步 / 追加 / 重复 / 分叉 / 改写 / 无重合),与骨架顺序一致 */
+  .k0 { background: #94a3b8; } .k1 { background: #2f6fed; } .k2 { background: #a16207; }
+  .k3 { background: #b42318; } .k4 { background: #7c3aed; } .k5 { background: #0f766e; }
+  .legend { margin: 0 0 12px; font-size: 12px; color: #475569; }
+  .legend > summary { cursor: pointer; color: #2f6fed; }
+  .legend-groups { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 8px; }
+  .legend-group { flex: 1 1 260px; min-width: 240px; }
+  .legend-title { margin-bottom: 4px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .legend-item { display: flex; gap: 6px; line-height: 1.6; }
+  .legend-item .from { flex: 0 0 44px; font-size: 10px; color: var(--muted); }
+  .legend-note { margin: 8px 0 0; color: var(--muted); line-height: 1.6; }
+
+  /* 一行叙述:每一段指向对应步,可点 */
+  .story { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 0 16px 12px; font-size: 12px; color: #475569; }
+  .story .part.link { color: #2f6fed; border-bottom: 1px dashed #bcd0f5; cursor: pointer; }
+  .story .arrow { color: #cbd5e1; }
+  .story .tail { color: var(--muted); }
+
+  /* 失败优先:清单固定在轮次顶部 */
+  .failures { display: flex; flex-direction: column; gap: 6px; padding: 8px 16px; background: #fff8f7; border-bottom: 1px dashed #edd9d6; }
+  .failure { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .failure .where { font-family: var(--mono); color: var(--err); }
+  .failure .why { color: var(--muted); }
+
+  /* 时间轴:每步一根条,共用一条轴。轨道列定宽,各行才能对齐 */
+  .axis-row { cursor: default; }
+  .axis-note { margin: 0; padding: 0 16px 8px 26px; font-size: 11px; color: var(--muted); line-height: 1.6; }
+  .track { position: relative; flex: 0 0 180px; height: 10px; background: #f1f5f9; border-radius: 3px; }
+  .axis-row .track { background: transparent; }
+  .track .fill { position: absolute; top: 0; bottom: 0; background: #2f6fed; border-radius: 3px; }
+  .track .fill.side { background: #a78bfa; }
+  .track .fill.failed { background: var(--err); }
+  /* harness 侧时间是推算值:斜纹段,不沿用实测条的实心样式 */
+  .track .hatch { position: absolute; top: 0; bottom: 0; border-radius: 3px; cursor: help;
+    background-image: repeating-linear-gradient(45deg, #cbd5e1 0 3px, transparent 3px 6px); }
+  .step .harness { font-size: 11px; color: var(--muted); border-bottom: 1px dashed #cbd5e1; cursor: help; }
+  .track .axis-end { position: absolute; top: 50%; transform: translateY(-50%); font-size: 10px; font-style: normal; color: #94a3b8; }
+  .track .axis-end.left { left: 0; }
+  .track .axis-end.right { right: 0; }
+  /* 极值标注:一轮只标最慢与最多 token */
+  .chip.hot { color: #9a3412; background: #fff7ed; border-color: #fed7aa; }
+  /* 步行的前三列定宽:轨道列才能在各行之间对齐 */
+  .step .caret { flex: 0 0 12px; }
+  .step .seq { flex: 0 0 46px; }
+  .step .time { flex: 0 0 76px; }
   .bar { display: inline-flex; height: 6px; width: 80px; border-radius: 3px; overflow: hidden; background: #eef1f5; vertical-align: middle; }
   .bar i { display: block; }
+  /* 推断值用虚线下划线标出;退化说明是文案,不当作计数 */
+  .stats .v.infer { border-bottom: 1px dashed #cbd5e1; cursor: help; }
+  /* 协议名较长:用小一号字,避免把统计行撑开 */
+  .stats .v.proto { font-size: 12px; font-weight: 500; }
+  .degr-example { margin-top: 8px; font-size: 11px; }
   .bar .ok { background: #34a06a; }
   .bar .err { background: #d4574a; }
   .bar .un { background: #b8c0cc; }
@@ -193,11 +283,18 @@
     <b>怎么读:</b>虚线紫框是<b>推断</b>字段(指纹比对得出),其余为实测值。
     <b>关键约束:</b>网关只存请求体、不存响应体——每个 step 的「请求新增」是事实,
     「响应」是从下一轮请求的历史消息反推的(客户端把上一轮的 assistant 消息拼回了 messages)。
-    <b>重试</b>按组标记 2/3。<b>压缩分两种</b>:摘要压缩(turn 4,行数骤降,展开给出前后对照与被移除内容)与
-    内容压缩(turn 5,条数不变、若干行被占位文本替换,展开给出受影响的行与长度对比)。
-    <b>继承</b>行表示本轮复用了历史消息但未解析。
-    <b>turn 行</b>的压缩/重试/失败标记是指纹级(零解析);「N 个工具」与<b>虚线标题</b>需解析该轮新增行,
-    在骨架渲染后渐进填充。
+   <b>重复</b>请求按组标记(第 n/N 次相同):判据是内容与上一步完全相同,不必然是失败后重发。<b>摘要压缩</b>(turn 4,行数骤降,展开给出前后对照与被移除内容)与 <b>分叉对照</b>
+   <b>差异块</b>(turn 5,按 LCS 求出、与同链上一步比较,每块可独立折叠:改动 / 删除 / 新增三类)。
+   <b>末行更新</b>(turn 9,行数不变且只剩末行不同:变长与变短都算,方向由末行两侧的字节数给出,故徽标写「末行扩展 +NB」「末行收缩 −NB」而非笼统的「分叉」)。
+   <b>继承</b>行表示本轮复用了历史消息但未解析。
+   <b>turn 行</b>的压缩/重复/失败标记是指纹级(零解析);「N 个工具」与<b>虚线标题</b>需解析该轮新增行,
+   在骨架渲染后渐进填充。
+  <b>时间轴</b>(每轮一条共享轴:每步一根条,标最慢与最多 token 的步;轴含旁路请求,条间空白为工具执行与等待的近似)、
+  <b>失败清单</b>(固定在轮次顶部,判据只取记录侧字段)、<b>一行叙述</b>(每段指向对应步)与
+  <b>分类分布条</b>(分项之和等于步数,细分另列)、<b>链汇总</b>(主链 1 条 + 旁路链,并按步与 token 给出旁路占比;
+  缺 system 指纹时链数显示「—」并说明原因)见本轮改动的形态;线型与徽标的含义见页首<b>图例</b>。
+  <b>harness 侧时间</b>用斜纹段标出:它从本步条的右端画到同链下一步的左端,含工具执行、客户端处理与人的思考,
+  三者不可拆分;链末步没有后继,数值显示「—」,后继落在下一轮时该段止于轴末端并在提示里说明。
   </div>
 
   <div id="app"></div>
@@ -208,9 +305,11 @@ const SESSION = {
   id: "1:claude-code-7f3a",
   source: "explicit",
   note: "explicit: x-claude-code-session-id",
+  // 协议决定用量列的口径。实现从各步去重得出;原型用会话级字段演示同一形态。
+  protocol: "anthropic-messages",
   first_seen: "10-13 09:40:00",
-  last_seen: "10-13 10:02:30",
-  usage: { in: 459300, out: 56900, cache: 256100 },
+  last_seen: "10-13 10:04:00",
+  usage: { in: 462300, out: 56900, cache: 256100 },
   latency: { avg_ms: 3500, max_ms: 9600 },
   turns: [
     {
@@ -395,14 +494,72 @@ const SESSION = {
           usage: { in: 64000, out: 2200, cache: 46000 },
           delta_kind: "fork", inherited: 24,
           retry: { n: 1, of: 1 },
-          content_compress: {
-            total_before: 25400, total_after: 132,
-            rows: [
-              { line: 12, before: 8600, after: 44, text: "[Old tool result content cleared]" },
-              { line: 15, before: 9320, after: 44, text: "[Old tool result content cleared]" },
-              { line: 19, before: 7480, after: 44, text: "[Old tool result content cleared]" }
-            ]
-          },
+          // 差异块:三种类型各一例(改动 / 删除 / 新增)。由 LCS 求出,与同链上一步比较。
+          diff_lines: 7,
+          diff: [
+            {
+              kind: "replace", prev_start: 18, prev_count: 1, cur_start: 18, cur_count: 1,
+              header: "@@ -16,7 +16,7 @@",
+              prev_bytes: 17441, cur_bytes: 305,
+              ctx_before: [
+                { prev_line: 15, cur_line: 15, bytes: 512, message: { role: "user", blocks: [{ type: "text", text: "tool_result → 已读取 pkg/auth/handler.go(128 行)" }] } },
+                { prev_line: 16, cur_line: 16, bytes: 486, message: { role: "assistant", blocks: [{ type: "text", text: "tool_use → Read(pkg/auth/service.go)" }] } },
+                { prev_line: 17, cur_line: 17, bytes: 498, message: { role: "user", blocks: [{ type: "text", text: "tool_result → 已读取 pkg/auth/service.go(64 行)" }] } }
+              ],
+              ctx_after: [
+                { prev_line: 19, cur_line: 19, bytes: 520, message: { role: "assistant", blocks: [{ type: "text", text: "tool_use → Edit(pkg/auth/handler.go)" }] } },
+                { prev_line: 20, cur_line: 20, bytes: 476, message: { role: "user", blocks: [{ type: "text", text: "tool_result → 文件已修改(1 处替换)" }] } },
+                { prev_line: 21, cur_line: 21, bytes: 508, message: { role: "assistant", blocks: [{ type: "text", text: "已修复:err 未包装导致中间件误判为 500。" }] } }
+              ],
+              prev: [{ line: 18, bytes: 17441, message: { role: "user", blocks: [{ type: "text", text: "Another Claude session sent a message: <agent-message from=…>[Subagent hand-back] The final report of a subagent…" }] } }],
+              cur: [{ line: 18, bytes: 305, message: { role: "user", blocks: [{ type: "text", text: "The user stepped away and is coming back. Recap in under 40 words…" }] } }]
+            },
+            {
+              kind: "delete", prev_start: 24, prev_count: 2, cur_start: 24, cur_count: 0,
+              header: "@@ -24,2 +23,0 @@",
+              prev_bytes: 12480,
+              unchanged_before: 2,
+              prev: [
+                { line: 24, bytes: 6240, message: { role: "user", blocks: [{ type: "text", text: "tool_result → 旧工具输出一(已被删除)" }] } },
+                { line: 25, bytes: 6240, message: { role: "user", blocks: [{ type: "text", text: "tool_result → 旧工具输出二(已被删除)" }] } }
+              ]
+            },
+            {
+              kind: "insert", prev_start: 31, prev_count: 0, cur_start: 31, cur_count: 3,
+              header: "@@ -31,0 +31,3 @@",
+              cur_bytes: 1860,
+              unchanged_before: 5,
+              cur: [
+                { line: 31, bytes: 620, message: { role: "assistant", blocks: [{ type: "text", text: "tool_use → Read(pkg/trace/diff.go)" }] } },
+                { line: 32, bytes: 620, message: { role: "user", blocks: [{ type: "text", text: "tool_result → 214 行" }] } },
+                { line: 33, bytes: 620, message: { role: "assistant", blocks: [{ type: "text", text: "已核对差异块的边界处理。" }] } }
+              ]
+            },
+            {
+              // 行内高亮的典型场景:长 JSON 行里只有一个 token 计数变了。
+              kind: "replace", prev_start: 40, prev_count: 1, cur_start: 40, cur_count: 1,
+              header: "@@ -38,7 +38,7 @@",
+              prev_bytes: 1180, cur_bytes: 1180,
+              unchanged_before: 6,
+              prev: [{ line: 40, bytes: 1180, message: { role: "system", blocks: [{ type: "text", text: '{"role":"system","blocks":[{"type":"text","text":"# Environment\\nYou have been… <total_tokens>15000000 tokens left</total_tokens>\\n…working directory: /tmp/ds-context"}]}' }] } }],
+              cur: [{ line: 40, bytes: 1180, message: { role: "system", blocks: [{ type: "text", text: '{"role":"system","blocks":[{"type":"text","text":"# Environment\\nYou have been… <total_tokens>14999775 tokens left</total_tokens>\\n…working directory: /tmp/ds-context"}]}' }] } }]
+            },
+            {
+              // 另一种行内高亮场景:同一行**追加了一个块**(工具结果后跟一段指令)。
+              // 差异全在 tool_result 内容之后,摘要比对才能定位到。
+              kind: "replace", prev_start: 46, prev_count: 1, cur_start: 46, cur_count: 1,
+              header: "@@ -44,7 +44,7 @@",
+              prev_bytes: 3271, cur_bytes: 3906,
+              unchanged_before: 5,
+              prev: [{ line: 46, bytes: 3271, message: { role: "user", blocks: [
+                { type: "tool_result", tool_use_id: "toolu_01A", content: "=== trace/cache.go ===\n  1  package trace\n  2\n  3  import (\n  4     sync\n…（共 2210 字符）" }
+              ] } }],
+              cur: [{ line: 46, bytes: 3906, message: { role: "user", blocks: [
+                { type: "tool_result", tool_use_id: "toolu_01A", content: "=== trace/cache.go ===\n  1  package trace\n  2\n  3  import (\n  4     sync\n…（共 2210 字符）" },
+                { type: "text", text: "Describe your most recent action in 3-5 words using present tense (-ing). Name the file or function, not the branch. Do not use tools." }
+              ] } }]
+            }
+          ],
           tools: [],
           added: [
             { role: "assistant", text: "tool_use → Edit(pkg/auth/service_test.go)" },
@@ -413,7 +570,7 @@ const SESSION = {
       ]
     },
     {
-      index: 6, title: "(无轨迹 · 被拒请求)",
+      index: 6, title: "(被拒请求 · 鉴权失败)",
       started_at: "09:55:10", duration_ms: 40,
       usage: { in: 0, out: 0, cache: 0 },
       steps: [
@@ -421,8 +578,9 @@ const SESSION = {
           seq: 10, ts: "09:55:10", latency_ms: 40, status_code: 401,
           error_kind: "auth", model: "—", stream: false,
           usage: { in: 0, out: 0, cache: 0 },
-          delta_kind: "none", has_trace: false,
-          retry: { n: 1, of: 1 }, tools: [], added: []
+          delta_kind: "added", inherited: 12,
+          retry: { n: 1, of: 1 }, tools: [],
+          added: [ { role: "user", text: "(被拒请求的请求体可解析,快照照常生成)" } ]
         }
       ]
     },
@@ -442,7 +600,7 @@ const SESSION = {
       ]
     },
     {
-      index: 8, title: "(新链 · 疑似子 agent 另起)",
+      index: 8, title: "(无重合 · 疑似子 agent 另起)",
       started_at: "10:02:30", duration_ms: 5000,
       usage: { in: 2400, out: 480, cache: 0 },
       steps: [
@@ -450,9 +608,45 @@ const SESSION = {
           seq: 12, ts: "10:02:30", latency_ms: 5000, status_code: 200,
           model: "claude-haiku-4-5", stream: true,
           usage: { in: 2400, out: 480, cache: 0 },
-          delta_kind: "new", inherited: 0, chain_note: "与主链无任何共同前缀或共享尾部",
+         delta_kind: "new", inherited: 0, chain_note: "与主链无任何共同前缀或共享尾部",
+         retry: { n: 1, of: 1 }, tools: [],
+         added: [ { role: "user", text: "(子任务上下文,与主链不相交)" } ]
+       }
+      ]
+    },
+    {
+      index: 9, title: "旁路刷新:末行注入内容更新",
+      started_at: "10:03:00", duration_ms: 40,
+      usage: { in: 1200, out: 0, cache: 0 },
+      steps: [
+        {
+          seq: 13, ts: "10:03:00", latency_ms: 40, status_code: 200,
+          model: "claude-haiku-4-5", stream: true,
+          usage: { in: 1200, out: 0, cache: 0 },
+          // 行数不变、只剩末行不同:末行内容被就地刷新。方向由两侧字节数给出,
+          // 变长与变短同属该形态,故徽标不写死"扩展"。
+          delta_kind: "fork", inherited: 11, tail_update: true,
+          tail_before: 486, tail_after: 512,
           retry: { n: 1, of: 1 }, tools: [],
-          added: [ { role: "user", text: "(子任务上下文,与主链不相交)" } ]
+          added: [ { role: "system", text: "…<total_tokens>14999775 tokens left</total_tokens>…" } ]
+        }
+      ]
+    },
+    {
+      index: 10, title: "旁路:安全监控请求",
+      started_at: "10:04:00", duration_ms: 260,
+      usage: { in: 1800, out: 0, cache: 0 },
+      steps: [
+        {
+          seq: 14, ts: "10:04:00", latency_ms: 260, status_code: 200,
+          model: "claude-haiku-4-5", stream: true,
+          usage: { in: 1800, out: 0, cache: 0 },
+          // 旁路链:客户端自动发出,与主链不相交(靠 system 指纹区分)。
+          // 它自己是一条链的起点,故徽标是「首步」。
+          delta_kind: "new", inherited: 0, side: true, side_chain: 1,
+          chain_note: "与主链无任何共同前缀或共享尾部",
+          retry: { n: 1, of: 1 }, tools: [],
+          added: [ { role: "system", text: "(安全监控:与主链不相交的 system 提示)" } ]
         }
       ]
     }
@@ -462,8 +656,8 @@ const SESSION = {
 // 会话列表:跨会话的入口层。预览里只有第一个会话有完整轨迹,其余为摘要示例
 const SESSIONS = [
   { id: "1:claude-code-7f3a", source: "显式标识", note: "x-claude-code-session-id",
-    first_seen: "10-13 09:40:00", last_seen: "10-13 10:02:30", steps: 12, requests: 14,
-    usage: { in: 459300, out: 56900, cache: 256100 }, current: true },
+    first_seen: "10-13 09:40:00", last_seen: "10-13 10:04:00", steps: 14, requests: 16,
+    usage: { in: 462300, out: 56900, cache: 256100 }, current: true },
   { id: "2:anon-20261013", source: "匿名", note: "no identifier (anon by date)",
     first_seen: "10-13 11:12:03", last_seen: "10-13 11:31:47", steps: 6, requests: 7,
     usage: { in: 88000, out: 9200, cache: 41000 } },
@@ -505,14 +699,32 @@ const statusClass = c => c >= 500 ? "s5xx" : c >= 400 ? "s429" : "s2xx";
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const badgeLabel = { new: "首步", added: "追加", retry: "重复", fork: "分叉", rewrite: "改写" };
 
+// 末行更新的徽标文案:方向由末行两侧的字节数给出,缺失时不报方向。
+function tailLabel(step) {
+  const before = step.tail_before, after = step.tail_after;
+  if (before === undefined || after === undefined) return "末行更新";
+  if (after > before) return `末行扩展 +${after - before}B`;
+  if (after < before) return `末行收缩 −${before - after}B`;
+  return "末行改写";
+}
+
 // 判定理由:与 delta_kind 一起给出"为什么这么判",无法确定时如实说明(对齐 waku 的 n/a + note 原则)
 function deltaNote(step) {
   if (step.cleared) return "无共同前缀也无共享尾部,且行数 ≤ 3 → 上下文清零(如 /clear)";
-  if (step.delta_kind === "new" && step.chain_note) return `无共同前缀也无共享尾部 → 新链:${step.chain_note}`;
+  if (step.delta_kind === "new" && step.chain_note) return `与同链上一步无共同前缀也无共享尾部 → 无重合:${step.chain_note}`;
   if (step.delta_kind === "new") return "会话首条快照,无前序可比";
   if (step.delta_kind === "retry") return "与上一步的行指纹序列完全相同,无新增行";
   if (step.compress) return `无共同前缀;旧序列末尾 ${step.compress.kept} 行原样保留 → 摘要压缩`;
-  if (step.content_compress) return `前缀 ${step.inherited} 行相同;${step.content_compress.rows.length} 行内容被替换为占位文本(长度骤降)`;
+  if (step.tail_update) {
+    if (step.tail_before === undefined || step.tail_after === undefined) {
+      return `前缀 ${step.inherited} 行相同;末行内容被更新(行长度不可比)`;
+    }
+    return `前缀 ${step.inherited} 行相同;末行内容从 ${step.tail_before}B 变到 ${step.tail_after}B(方向不限,刷新末尾注入内容与旁路转录重写都算)`;
+  }
+  if (step.diff?.length) {
+    const kinds = step.diff.map(h => ({ replace: "改动", delete: "删除", insert: "新增" }[h.kind])).join("、");
+    return `与同链上一步比:${step.diff.length} 处差异(${kinds}),共 ${step.diff_lines} 行`;
+  }
   if (step.delta_kind === "fork") return `共同前缀 ${step.inherited} 行相同,尾部被替换(新输入或改写,无法进一步区分)`;
   return `前缀延伸:继承 ${step.inherited} 行 + 新增 ${step.added.length} 条`;
 }
@@ -567,58 +779,384 @@ function compressHTML(step) {
 }
 
 function detailHTML(step) {
-  if (step.has_trace === false) {
-    return `<div class="dnote"><b>无轨迹</b> · 该请求未生成快照(请求体不可解析,或未进入快照生成范围),仅保留原始层;状态与延迟仍来自请求记录</div>`;
-  }
   const note = `<div class="dnote"><b>判定理由</b> · ${esc(deltaNote(step))}</div>`;
   const compress = step.compress ? compressHTML(step) : "";
-  const contentCompress = step.content_compress ? contentCompressHTML(step) : "";
-  const rows = step.added.map(m =>
-    `<div class="msg ${m.role}"><span class="role">${m.role}</span><span class="txt">${esc(m.text)}</span></div>`
+  // 差异块的 `+` 侧就是新增消息本身,两者同时铺开会重复显示同一批行号,
+  // 故一次只显示一种;有差异时默认显示差异。
+  const hasDiff = !!step.diff?.length;
+  const view = hasDiff && dfMsgView === 'diff' ? 'diff' : 'added';
+  const diverged = view === 'diff' ? diffHTML(step) : "";
+  // 序号是「在完整上下文中的位置」:增量模式下列表只含新增消息,故要加上继承行数。
+  const rows = step.added.map((m, i) =>
+    `<div class="msg ${m.role}"><span class="idx">#${step.inherited + i + 1}</span><span class="role">${m.role}</span><span class="txt">${esc(m.text)}</span></div>`
   ).join("");
   const inherited = step.inherited
     ? `<div class="inherited">↑ 继承 ${step.inherited} 行历史消息(未解析)</div>` : "";
-  const msgs = `<div class="sect"><div class="lbl">请求 · 相对上一请求新增 ${step.added.length} 条消息</div>
-    <div class="msgs">${inherited}${rows || '<div class="msg"><span class="txt" style="color:#9aa3af">(重试,无新增)</span></div>'}</div></div>`;
+  const lbl = `<div class="lbl">请求 · 相对上一请求新增 ${step.added.length} 条消息` +
+    (hasDiff ? `<span class="viewsw"><button onclick="dfMsgView = 'diff'; rerender();">差异</button><button class="on">新增消息</button></span>` : "") +
+    `</div>`;
+  const hint = view === 'diff'
+    ? `<div class="hint">本轮新增的消息已在上方「与同链上一步的差异」中呈现(差异的 + 侧即新增行)。<button class="link" onclick="dfMsgView = 'added'; rerender();">在此逐条查看 →</button></div>`
+    : "";
+  // 差异视图下不再逐条重复同一批消息(它们的行号会与差异区重合)。
+  const list = view === 'added'
+    ? `<div class="msgs">${inherited}${rows || '<div class="msg"><span class="txt" style="color:#9aa3af">(与上一步相同,无新增)</span></div>'}</div>`
+    : "";
+  const msgs = `<div class="sect">${lbl}${hint}${list}</div>`;
   // 响应不在此处展示:工具调用已提为 step 之间的独立事件行(见 callsHTML)
-  return note + compress + contentCompress + msgs;
+  return note + compress + diverged + msgs;
 }
 
-function contentCompressHTML(step) {
-  const c = step.content_compress;
-  const rows = c.rows.map(r => `<div class="cc-row">
-    <span class="cc-line">行 ${r.line}</span>
-    <span class="cc-size">${fmtBytes(r.before)} → ${fmtBytes(r.after)}</span>
-    <span class="cc-text">${esc(r.text)}</span>
-  </div>`).join("");
+// msgText 把消息压成单行摘要:兼容 {role, blocks} 与 {role, text} 两种形态。
+// 必须认识所有块类型并带上内容——只读 text 块会让纯工具消息渲染成空白
+// (实测表现为「(无内容)」),两行也会因取到空串而显示成一模一样。
+function msgText(msg) {
+  if (!msg) return '';
+  if (!Array.isArray(msg.blocks)) return String(msg.text || '');
+  return msg.blocks.map(b => {
+    const k = b && b.type;
+    if (k === 'text') return String(b.text || '');
+    if (k === 'tool_use') return `tool_use → ${b.name}`;
+    if (k === 'tool_result') {
+      const c = b.content;
+      return `tool_result → ${typeof c === 'string' ? c : JSON.stringify(c)}`;
+    }
+    return String(k || '?');
+  }).join(' | ');
+}
+
+// dfView 是差异块的呈现方式:单栏(unified)/ 双栏(split)。
+let dfView = 'unified';
+// dfMsgView 是「消息区」的呈现选择:差异 / 新增消息。
+// 差异块的 `+` 侧就是新增消息本身,两者同时铺开会重复显示同一批行号。
+let dfMsgView = 'diff';
+// dfCtx 是当前展示的上下文行数(git 默认 3,可展开)。
+let dfCtx = 3;
+
+// inlineParts 用公共前/后缀裁剪算出变更中段;不需要切分时返回 null。
+// 长 JSON 行改一个 token 计数时,整行标红看不出改在哪,所以只高亮中段。
+function inlineParts(a, b) {
+  if (!a || !b || a.length > 20000 || b.length > 20000) return null;
+  let head = 0;
+  const maxHead = Math.min(a.length, b.length);
+  while (head < maxHead && a[head] === b[head]) head++;
+  let tail = 0;
+  const maxTail = Math.min(a.length, b.length) - head;
+  while (tail < maxTail && a[a.length - 1 - tail] === b[b.length - 1 - tail]) tail++;
+  const aMid = a.slice(head, a.length - tail);
+  const bMid = b.slice(head, b.length - tail);
+  const total = Math.max(a.length, b.length);
+  if (Math.max(aMid.length, bMid.length) > total * 0.6) return null;
+  if (!aMid && !bMid) return null;
+  const tailKeep = tail > 0 ? tail : 0;
+  return {
+    prev: { pre: a.slice(0, head), mid: aMid, suf: tailKeep ? a.slice(a.length - tailKeep) : '' },
+    cur: { pre: b.slice(0, head), mid: bMid, suf: tailKeep ? b.slice(b.length - tailKeep) : '' },
+  };
+}
+
+// hl 渲染一行正文:有切分时只高亮中段,文本先转义再拼标签。
+function hl(parts, text) {
+  if (!parts) return esc(text);
+  return esc(parts.pre) + `<mark class="chg">${esc(parts.mid)}</mark>` + esc(parts.suf);
+}
+
+// pairs 把改动块两侧逐行配对:只有「改动」且两侧都有内容时才做行内高亮。
+// 比对用**显示摘要**(msgText),不是 text 块:纯工具消息的差异全在 tool_result
+// 内容里,只比 text 块会取到空串,两行就显示成一模一样。
+function pairs(h) {
+  const p = h.prev || [], c = h.cur || [];
+  const out = [];
+  for (let i = 0; i < Math.max(p.length, c.length); i++) {
+    const inline = h.kind === 'replace' && p[i] && c[i] ? inlineParts(msgText(p[i].message), msgText(c[i].message)) : null;
+    out.push({ prev: p[i], cur: c[i], inline });
+  }
+  return out;
+}
+
+// diffHTML 呈现差异块:标准 unified diff(含上下文行、块间未变更提示、行内高亮),
+// 支持单栏/双栏切换与上下文展开。只给事实,不推断"压缩""改写"。
+function diffHTML(step) {
+  const hunks = step.diff;
+  const kindLabel = { replace: '改动', delete: '删除', insert: '新增' };
+  const uniLine = (sign, cls, r, parts) => `<div class="uline ${cls}">
+    <span class="sign">${sign}</span>
+    <span class="ln">#${r.line + 1}</span>
+    <span class="sz2">${fmtBytes(r.bytes)}</span>
+    <span class="txt">${hl(parts, msgText(r.message) || '(无内容)')}</span>
+  </div>`;
+  const ctxLine = (r) => `<div class="uline ctx">
+    <span class="sign"> </span>
+    <span class="ln">#${r.cur_line + 1}</span>
+    <span class="sz2">${fmtBytes(r.bytes)}</span>
+    <span class="txt">${esc(msgText(r.message) || '(无内容)')}</span>
+  </div>`;
+  const one = (h, total) => {
+    const ps = pairs(h);
+    // 上下文按 dfCtx 就地切片:靠近变更点的优先(与真实实现一致)。
+    // 注意 dfCtx=0 要取空数组——slice(-0) 等价于 slice(0),会取到全部。
+    const ctxBefore = dfCtx === 0 ? [] : (h.ctx_before || []).slice(-dfCtx);
+    const ctxAfter = dfCtx === 0 ? [] : (h.ctx_after || []).slice(0, dfCtx);
+    const uni = `<div class="udiff">
+      ${ctxBefore.map(ctxLine).join("")}
+      ${ps.map(p =>
+        (p.prev ? uniLine('-', 'del', p.prev, p.inline ? p.inline.prev : null) : '') +
+        (p.cur ? uniLine('+', 'add', p.cur, p.inline ? p.inline.cur : null) : '')
+      ).join("")}
+      ${ctxAfter.map(ctxLine).join("")}
+    </div>`;
+    const split = `<div class="udiff split">
+      ${ps.map(p => `<div class="srow">
+        <div class="scell${p.prev ? ' del' : ''}">${p.prev ? `<span class="ln">#${p.prev.line + 1}</span><span class="txt">${hl(p.inline ? p.inline.prev : null, msgText(p.prev.message) || '(无内容)')}</span>` : ''}</div>
+        <div class="scell${p.cur ? ' add' : ''}">${p.cur ? `<span class="ln">#${p.cur.line + 1}</span><span class="txt">${hl(p.inline ? p.inline.cur : null, msgText(p.cur.message) || '(无内容)')}</span>` : ''}</div>
+      </div>`).join("")}
+    </div>`;
+    return `<details class="hunk" ${total === 1 ? "open" : ""}>
+      <summary>
+        <span class="hunk-kind ${h.kind}">${kindLabel[h.kind] || h.kind}</span>
+        <span class="hunk-range">${esc(h.header)}</span>
+        <span style="margin-left:auto"></span>
+        <span class="sz">${fmtBytes(h.prev_bytes || 0)} → ${fmtBytes(h.cur_bytes || 0)}</span>
+      </summary>
+      ${dfView === 'unified' ? uni : split}
+    </details>`;
+  };
+  const gap = (h) => h.unchanged_before ? `<div class="gap">⋯ 未变更 ${h.unchanged_before} 行 ⋯</div>` : "";
   return `<div class="sect">
-    <div class="lbl">内容压缩 · 消息条数不变,${c.rows.length} 行内容被替换</div>
-    <div class="cc">${rows}
-      <div class="cc-sum">合计 ${fmtBytes(c.total_before)} → ${fmtBytes(c.total_after)}(长度取自 line_sizes,判据在指纹层完成)</div>
+    <div class="lbl">与同链上一步的差异 · ${hunks.length} 个 hunk
+      <span class="viewsw"><button class="on">差异</button><button onclick="dfMsgView = 'added'; rerender();">新增消息</button></span>
     </div>
+    <div class="dfctrl">
+      <button class="link" onclick="dfCtx = 3; rerender();">收起上下文</button>
+      <button class="link" onclick="dfCtx = Math.min(dfCtx + 20, 200); rerender();">展开更多上下文</button>
+      <button class="link" onclick="dfView = dfView === 'unified' ? 'split' : 'unified'; rerender();">
+        ${dfView === 'unified' ? '切换为双栏' : '切换为单栏'}
+      </button>
+    </div>
+    ${hunks.map((h, i) => gap(h) + one(h, hunks.length)).join("")}
   </div>`;
 }
 
-function stepHTML(step) {
+// ---------- 图例、分类分布、时间轴与叙述(与实现同构,文案来自 trailLegend.ts)
+// 图例条目必须与 web/src/trailLegend.ts 逐字一致:冒烟脚本会比对,防止两处漂移。
+const LINE_LEGEND = [
+  { text: "实线:实测值,直接来自记录侧字段", from: "实测" },
+  { text: "虚线:推断值,由行指纹比对得出", from: "推断" },
+  { text: "虚线灰框与虚线下划线:需解析,可渐进填充", from: "需解析" },
+  { text: "斜纹:harness 侧时间,由同链相邻两步的时间戳推得", from: "推断" }
+];
+const KIND_LEGEND = [
+  { text: "首步:会话第一条快照,无前序可比", from: "推断" },
+  { text: "追加:本次序列是上次的前缀延伸", from: "推断" },
+  { text: "重复:与上一步内容完全相同", from: "推断" },
+  { text: "分叉:前缀相同,尾部被替换或删除", from: "推断" },
+  { text: "改写:无共同前缀,但有共享尾部", from: "推断" },
+  { text: "无重合:与同链上一步既无共同前缀,也无共享尾部", from: "推断", note: "该分类统计链内内容断层的步,不是链数。链数见会话头的链汇总。" }
+];
+const MARK_LEGEND = [
+  { text: "末行更新:行数不变,只剩末行不同,方向由末行两侧字节数给出", from: "推断" },
+  { text: "摘要压缩:改写且行数骤降,旧序列末尾被保留", from: "推断" },
+  { text: "上下文清零:无重合且行数不超过 3", from: "推断" },
+  { text: "网关侧归因:被拒或短路的请求带记录侧错误分类", from: "实测" }
+];
+const AXIS_NOTE =
+  "轴覆盖本轮全部请求,含旁路请求。斜纹段是 harness 侧时间:同链下一步请求的开始 − 本步结束,含工具执行、客户端处理与人的思考。本步耗时从请求体读完开始计时,故不含请求体的读取时间。";
+// harness 侧耗时的口径:推算值,三部分不可拆分,故不称「工具耗时」。
+const HARNESS_NOTE =
+  "harness 侧时间(推算):同链下一步请求的开始时间 − 本步结束时间。窗口含工具在客户端的执行、客户端自身的处理、人的思考,也含同期为其它链所做的工作与不生成 step 的其它请求,故它不是该步独占的工作量,也不称「工具耗时」。";
+// 两个时间口径的差别:轮次起始时间只取主路;轴左端含旁路,故可能更早。
+const START_NOTE =
+  "轮次起始时间取首个主路步的时间。轴左端取本轮全部请求里最早的一次:旁路先到时轴会更早。两者口径不同,数值都对。";
+// 用量口径:in 的含义随协议不同,不写明会被用错加法。与 trailLegend.ts 逐字一致。
+const USAGE_LEGEND = [
+  { text: "Anthropic:in 是 input_tokens,不含缓存。cache 是缓存读加缓存写。in + cache 等于总输入", from: "实测" },
+  { text: "OpenAI 兼容与 DeepSeek:in 是 prompt_tokens,已含缓存命中。cache 是它的子集,in + cache 会重复计数", from: "实测" }
+];
+const MIXED_PROTOCOL_NOTE =
+  "本会话出现多个协议:各步按各自的协议记录用量,跨协议的用量不可直接相加。";
+// 协议标记上的口径说明:in 的含义随协议不同。与 trailLegend.ts 逐字一致。
+const USAGE_NOTE =
+  "in 的含义随协议不同:Anthropic 不含缓存(与 cache 可相加);OpenAI 兼容与 DeepSeek 已含缓存命中(cache 是子集,不可相加)。";
+// 分布条与图例共用的两句话:前者把「无重合」与链数分开,后者给出「首步 = 链数」。
+const NO_OVERLAP_NOTE = "该分类统计链内内容断层的步,不是链数。链数见会话头的链汇总。";
+const KINDS_NEW_NOTE =
+  "「首步」段等于链总数,即主链 1 条加旁路链 N 条,可与会话头的链汇总互相印证。链首快照为空时会记成「无重合」,该情形不在此列。";
+// 两种判据的分工:链归属与内容分类用的不是同一种证据。
+const JUDGE_NOTE =
+  "链归属用稳定指纹(system 前缀加首条 user 前缀),内容分类用整行字节。两者判据不同,所以「同一条链」与「零重合」可以同时成立。";
+// 多协议形态:原型用一行静态示例呈现(单协议会话不出现该说明)。
+const MIXED_PROTOCOL_EXAMPLE = "多协议时该处显示:" + MIXED_PROTOCOL_NOTE;
+// 链汇总的两条口径文案:与 web/src/trailLegend.ts 逐字一致,冒烟脚本会比对。
+const CHAIN_NOTE =
+  "推断:同一条链的判据是 system 指纹与首条 user 指纹两级相同。主链是含会话首步的那条,恒为 1 条。";
+const TURN_CHAIN_NOTE =
+  "口径:本轮出现的链。会话层的「链」是整个会话的链数,两者不同。旁路为客户端自动请求(标题生成 / 安全监控等),与主路分列呈现。";
+// 退化形态:缺 system 指纹时链归属退化为不拆分,链数显示「—」并说明原因。
+// 原型用一行静态示例呈现该形态(与实现的文案一致)。
+const CHAIN_DEGRADED_EXAMPLE = "缺 system 指纹时该处显示:链 —(缺 system 指纹,链不可分)";
+const KIND_TEXT = { new: "首步", added: "追加", retry: "重复", fork: "分叉", rewrite: "改写", chain: "无重合" };
+const KIND_ORDER = ["new", "added", "retry", "fork", "rewrite", "chain"];
+
+// 链汇总:从步骤的旁路标记推导,不在数据里手写(与后端同一口径)。
+function chainSummary() {
+  const allSteps = SESSION.turns.flatMap(t => t.steps);
+  const side = allSteps.filter(s => s.side);
+  const chains = new Set(side.map(s => s.side_chain));
+  return {
+    main: 1,
+    side: chains.size,
+    sideSteps: side.length,
+    sideIn: side.reduce((n, s) => n + s.usage.in, 0),
+    sideOut: side.reduce((n, s) => n + s.usage.out, 0)
+  };
+}
+
+// 链汇总的统计块:链数标为推断,旁路给出步数与 token。
+function chainsStats() {
+  const c = chainSummary();
+  return `<div class="stat"><div class="k">链</div>
+      <div class="v infer" title="${esc(CHAIN_NOTE)}">${c.main} + ${c.side}</div></div>
+    <div class="stat" title="${esc(CHAIN_NOTE)}"><div class="k">旁路</div>
+      <div class="v">${c.sideSteps} 步 · in ${fmtK(c.sideIn)} / out ${fmtK(c.sideOut)}</div></div>`;
+}
+
+// 分类分布:从数组推导,不手写。分项之和等于步数,细分另列(与后端同一口径)。
+function kindsBar() {
+  const counts = KIND_ORDER.map(k => SESSION.turns.reduce((n, t) => n + t.steps.filter(s => s.delta_kind === k).length, 0));
+  const total = counts.reduce((a, b) => a + b, 0) || 1;
+  const segs = counts.map((n, i) =>
+    n ? `<i class="seg k${i}" style="width:${(n / total * 100).toFixed(2)}%" title="${KIND_TEXT[KIND_ORDER[i]]} ${n} 步"></i>` : "").join("");
+  const legend = counts.map((n, i) =>
+    `<span><i class="sw k${i}"></i>${KIND_TEXT[KIND_ORDER[i]]} ${n}</span>`).join("");
+  const marked = s => SESSION.turns.reduce((n, t) => n + t.steps.filter(s).length, 0);
+  return `<div class="kinds">
+    <div class="kinds-bar">${segs}</div>
+    <div class="kinds-legend">${legend}
+      <span class="muted">细分(不计入分类):压缩 ${marked(s => s.compress)} · 清零 ${marked(s => s.cleared)} · 末行更新 ${marked(s => s.tail_update)}</span>
+    </div>
+    <div class="muted kinds-note">${NO_OVERLAP_NOTE} ${KINDS_NEW_NOTE}</div>
+  </div>`;
+}
+
+// 图例块:线型 / 分类徽标 / 细分与记录侧标记 / 用量口径,每项标出来源。
+function legendHTML() {
+  const group = (title, entries) => `<div class="legend-group"><div class="legend-title">${title}</div>${
+    entries.map(e => `<div class="legend-item"><span class="from">${e.from}</span>${e.text}${
+      e.note ? `<span class="legend-entry-note"> · ${e.note}</span>` : ""}</div>`).join("")}</div>`;
+  return `<details class="legend">
+    <summary>图例 · 怎么看</summary>
+    <div class="legend-groups">
+      ${group("线型", LINE_LEGEND)}
+      ${group("分类徽标", KIND_LEGEND)}
+      ${group("细分与记录侧标记", MARK_LEGEND)}
+      ${group("用量口径", USAGE_LEGEND)}
+    </div>
+    <p class="legend-note">${AXIS_NOTE}</p>
+    <p class="legend-note">${JUDGE_NOTE}</p>
+  </details>`;
+}
+
+// 轴:偏移与总时长由各步的 ts 与耗时算出,与后端同一口径(含旁路步)。
+const clockMs = s => clockSec(s) * 1000;
+function axisOf(turn) {
+  const starts = turn.steps.map(s => clockMs(s.ts));
+  const base = Math.min(...starts);
+  const total = Math.max(...turn.steps.map(s => clockMs(s.ts) + s.latency_ms)) - base;
+  return { base, total };
+}
+
+// 条的位置与长度:亚秒步保底 0.6%,否则在轴上不可见。
+function barStyle(step, axis) {
+  if (!axis.total) return "display:none";
+  const left = Math.max(0, Math.min(100, (clockMs(step.ts) - axis.base) / axis.total * 100));
+  const width = Math.max(0.6, step.latency_ms / axis.total * 100);
+  return `left:${left.toFixed(2)}%;width:${Math.min(width, 100 - left).toFixed(2)}%`;
+}
+
+// harness 段:从本步条的右端画起,到同链下一步的左端。
+// 越过轴末端时裁到末端(数值仍给全量,提示里说明延续)。
+function harnessStyle(step, axis) {
+  if (!axis.total || !step.harness_ms) return "display:none";
+  const left = Math.max(0, Math.min(100, (clockMs(step.ts) - axis.base + step.latency_ms) / axis.total * 100));
+  const width = Math.min(step.harness_ms / axis.total * 100, 100 - left);
+  return width <= 0 ? "display:none" : `left:${left.toFixed(2)}%;width:${width.toFixed(2)}%`;
+}
+function harnessClipped(step, axis) {
+  if (!axis.total || !step.harness_ms) return false;
+  return clockMs(step.ts) - axis.base + step.latency_ms + step.harness_ms > axis.total;
+}
+function harnessTitle(step, axis) {
+  return harnessClipped(step, axis) ? HARNESS_NOTE + "本段止于轴末端,该值延续到下一轮。" : HARNESS_NOTE;
+}
+function harnessLabel(step) {
+  return step.harness_ms === undefined ? "—" : fmtMs(step.harness_ms);
+}
+
+// 极值标注:一轮只标最慢与最多 token;步之间没有差异时不标。
+function hotLabels(turn) {
+  const out = {};
+  if (turn.steps.length < 2) return out;
+  const lats = turn.steps.map(s => s.latency_ms);
+  const toks = turn.steps.map(s => s.usage.in + s.usage.out);
+  const add = (seq, label) => { out[seq] = [...(out[seq] || []), label]; };
+  if (Math.max(...lats) > Math.min(...lats)) {
+    add(turn.steps.reduce((a, b) => b.latency_ms > a.latency_ms ? b : a).seq, "最慢");
+  }
+  if (Math.max(...toks) > Math.min(...toks)) {
+    add(turn.steps.reduce((a, b) => (b.usage.in + b.usage.out) > (a.usage.in + a.usage.out) ? b : a).seq, "最多 token");
+  }
+  return out;
+}
+
+// 一行叙述:与后端同构(首步分类 → 行数变化 → 首个细分标记 → 失败计数)。
+// 原型只演示「新增 N 行」形态;两侧都有变化时后端给「移除 M 行 · 新增 N 行」。
+function storyOf(turn) {
+  const parts = [];
+  const first = turn.steps[0];
+  if (first) parts.push({ text: KIND_TEXT[first.delta_kind] || first.delta_kind, seq: first.seq });
+  const added = turn.steps.reduce((n, s) => n + (s.added ? s.added.length : 0), 0);
+  parts.push({ text: added ? `新增 ${added} 行` : "无行数变化" });
+  const mark = turn.steps.find(s => s.compress || s.cleared || s.tail_update);
+  if (mark) {
+    const text = mark.compress ? `压缩 ${mark.compress.before_lines}→${mark.compress.after_lines} 行`
+      : mark.cleared ? "上下文清零" : "末行更新";
+    parts.push({ text, seq: mark.seq });
+  }
+  const failed = turn.steps.filter(s => s.status_code >= 400 || s.error_kind);
+  if (failed.length) parts.push({ text: `${failed.length} 步失败`, seq: failed[0].seq });
+  const tools = turn.steps.reduce((n, s) => n + s.tools.length, 0);
+  if (tools) parts.splice(Math.min(1, parts.length) + 1, 0, { text: `${tools} 次工具` });
+  return parts;
+}
+
+// 失败清单:判据只取记录侧字段(状态码 ≥400 或 error_kind 非空)。
+function failuresHTML(turn) {
+  const failed = turn.steps.filter(s => s.status_code >= 400 || s.error_kind);
+  if (!failed.length) return "";
+  return `<div class="failures">${failed.map(s => `<div class="failure">
+      <span class="chip failc">失败</span>
+      <span class="where">#${s.seq}</span>
+      <span class="why">${s.error_kind ? "网关侧 " + esc(s.error_kind) : "状态码 " + s.status_code}</span>
+    </div>`).join("")}</div>`;
+}
+
+function stepHTML(step, turn, axis, hot) {
+  const hotChips = (hot || []).map(l => `<span class="chip hot">${l}</span>`).join("");
   const retryChip = step.retry.of > 1
-    ? `<span class="badge retry">重试 ${step.retry.n}/${step.retry.of}</span>` : "";
+    ? `<span class="badge retry">第 ${step.retry.n}/${step.retry.of} 次相同</span>` : "";
   const gapChip = step.gap_ms == null ? "" :
     `<span class="chip" title="轮间间隔:含客户端本地执行与人的思考时间">间隔 ${fmtMs(step.gap_ms)}</span>`;
   const toolChip = step.tools.length ? `<span class="chip">${step.tools.length} 个工具</span>` : "";
-  // 被拒/短路的请求:网关侧归因可见;若未生成快照则标明"无轨迹",不得静默省略
+  // 被拒/短路的请求:携带网关侧归因;归属由快照承载,无快照的请求不进入轨迹
   const errChip = step.error_kind ? `<span class="chip errc" title="网关侧归因">${esc(step.error_kind)}</span>` : "";
-  const noTrace = step.has_trace === false ? `<span class="chip notrace" title="该请求没有快照,只有记录">无轨迹</span>` : "";
-  let deltaBadge = "";
-  if (step.has_trace !== false) {
-    if (step.cleared) deltaBadge = `<span class="badge compress" title="${esc(deltaNote(step))}">上下文清零</span>`;
-    else if (step.compress) deltaBadge = `<span class="badge compress" title="${esc(deltaNote(step))}">压缩 ${step.compress.before_lines}→${step.compress.after_lines} 行</span>`;
-    else if (step.content_compress) deltaBadge = `<span class="badge compress" title="${esc(deltaNote(step))}">内容压缩 ${step.content_compress.rows.length} 行</span>`;
-    else {
-      // new 有两种语义:会话首步,或与上一步不相交的新链(如子 agent 另起、客户端清理上下文)
-      const label = step.delta_kind === "new" && step.seq !== 1 ? "新链" : badgeLabel[step.delta_kind];
-      deltaBadge = `<span class="badge ${step.delta_kind}" title="${esc(deltaNote(step))}">${label}</span>`;
-    }
-  }
+  // new 只有一种语义:一条链的起点。旁路链的首步与会话首步同义(都是链起点)。
+  const newLabel = badgeLabel[step.delta_kind];
+  let deltaBadge;
+  if (step.cleared) deltaBadge = `<span class="badge compress" title="${esc(deltaNote(step))}">上下文清零</span>`;
+  else if (step.compress) deltaBadge = `<span class="badge compress" title="${esc(deltaNote(step))}">压缩 ${step.compress.before_lines}→${step.compress.after_lines} 行</span>`;
+  else if (step.tail_update) deltaBadge = `<span class="badge fork" title="${esc(deltaNote(step))}">${tailLabel(step)}</span>`;
+  else if (step.diff?.length) deltaBadge = `<span class="badge fork" title="${esc(deltaNote(step))}">分叉 ${step.diff_lines} 行</span>`;
+  else deltaBadge = `<span class="badge ${step.delta_kind}" title="${esc(deltaNote(step))}">${newLabel}</span>`;
   return `<div class="step" data-seq="${step.seq}">
     <div class="rail"></div>
     <div class="head">
@@ -627,42 +1165,71 @@ function stepHTML(step) {
       <span class="time">${step.ts}</span>
       <span class="status ${statusClass(step.status_code)}">${step.status_code}</span>
       <span class="lat">${fmtMs(step.latency_ms)}</span>
+      <span class="harness" title="${esc(HARNESS_NOTE)}">harness ${harnessLabel(step)}</span>
       <span class="tokens">in ${fmtK(step.usage.in)} / out ${fmtK(step.usage.out)} / cache ${fmtK(step.usage.cache)}</span>
-      <span class="spacer"></span>
-      ${errChip}${noTrace}${toolChip}${gapChip}${deltaBadge}${retryChip}
+      <span class="track" title="偏移 ${fmtMs(clockMs(step.ts) - axis.base)} · 本步 ${fmtMs(step.latency_ms)}">
+        <i class="fill${step.side ? " side" : ""}${step.status_code >= 400 || step.error_kind ? " failed" : ""}" style="${barStyle(step, axis)}"></i>
+        <i class="hatch" style="${harnessStyle(step, axis)}" title="${esc(harnessTitle(step, axis))}"></i>
+      </span>
+      ${errChip}${hotChips}${toolChip}${gapChip}${deltaBadge}${retryChip}
     </div>
     <div class="detail"></div>
   </div>`;
 }
 
 function turnHTML(turn, open) {
-  // 轮级标记从步骤分类推断:非首步的「新链」意味着这条消息链与上一步不相交
+  // 轮级标记从步骤分类推断:无重合的步意味着这条消息链与上一步不相交
   const newChain = turn.steps.some(s => s.delta_kind === "new" && s.seq !== 1 && !s.cleared);
   const chainChip = newChain
-    ? `<span class="chip parallel" title="与上一步既无共同前缀也无共享尾部(可能来自子 agent 或客户端清理上下文);本变更只标记,不做链归属分组">⇄ 新链</span>` : "";
+    ? `<span class="chip parallel" title="与上一步既无共同前缀也无共享尾部(可能来自子 agent 或客户端清理上下文);本变更只标记,不做链归属分组">⇄ 不相交</span>` : "";
   const tools = turn.steps.reduce((n, s) => n + s.tools.length, 0);
   const compresses = turn.steps.filter(s => s.compress).length;
-  const contents = turn.steps.filter(s => s.content_compress).length;
+  const diverged = turn.steps.filter(s => s.diff?.length).length;
   const retries = turn.steps.filter(s => s.delta_kind === "retry").length;
   const failures = turn.steps.filter(s => s.status_code >= 400 || s.error_kind).length;
+  // 轮级链口径:本轮出现的链,与会话层的整会话链数不同(见 TURN_CHAIN_NOTE)。
+  const sideSteps = turn.steps.filter(s => s.side);
+  const sideChains = [...new Set(sideSteps.map(s => s.side_chain))];
+  const sideChip = sideSteps.length
+    ? `<span class="chip" title="${esc(TURN_CHAIN_NOTE)}">本轮链 ${sideChains.length} 条 · 旁路 ${sideSteps.length} 步</span>` : "";
   const toolChip = `<span class="chip lazy" title="需解析该轮新增行,可渐进填充">${tools} 个工具</span>`;
+  const parseCost = turn.steps.reduce((n, s) => n + (s.added ? s.added.length : 0), 0);
+  const toolChipCost = `<span class="chip lazy" title="解析本轮新增 ${parseCost} 行后填充">工具 · 解析 ${parseCost} 行</span>`;
   const compressChip = compresses ? `<span class="chip compress">⚠ 含压缩 ${compresses} 次</span>` : "";
-  const contentChip = contents ? `<span class="chip compress">⚠ 内容压缩 ${contents} 处</span>` : "";
-  const retryChip = retries ? `<span class="chip retry">重试 ${retries} 次</span>` : "";
+  const divergedChip = diverged ? `<span class="chip infer">分叉 ${diverged} 处</span>` : "";
+  const retryChip = retries ? `<span class="chip retry">重复 ${retries} 次</span>` : "";
   const failChip = failures ? `<span class="chip failc">⚠ 含失败 ${failures} 步</span>` : "";
+  const axis = axisOf(turn);
+  const hot = hotLabels(turn);
+  const parts = storyOf(turn);
+  const story = parts.length ? `<div class="story">${parts.map((p, i) =>
+    `${i ? '<span class="arrow">→</span>' : ""}<span class="part${p.seq ? " link" : ""}">${esc(p.text)}</span>`).join("")}
+    <span class="tail">· ${fmtMs(axis.total)} · in ${fmtK(turn.usage.in)} / out ${fmtK(turn.usage.out)}</span></div>` : "";
+  const axisRow = axis.total ? `<div class="head axis-row">
+      <span class="caret"></span>
+      <span class="seq"></span>
+      <span class="time">时间轴</span>
+      <span class="track">
+        <i class="axis-end left">0s</i>
+        <i class="axis-end right">${fmtMs(axis.total)}</i>
+      </span>
+    </div>
+    <p class="axis-note">${AXIS_NOTE}</p>` : "";
   return `<div class="turn card ${open ? "open" : ""}">
     <div class="head">
       <span class="caret">▸</span>
       <span class="idx">${turn.index}</span>
-      <span class="title lazy" title="标题取自该轮首个 step 的新增行(需解析),可渐进填充">${esc(turn.title)}</span>
+      <span class="title lazy" title="标题取自该轮首个 step 的新增行,需解析 ${parseCost} 行">${esc(turn.title)}</span>
       <span class="chips">
-        <span class="chip">${turn.steps.length} steps</span>
-        <span class="chip">${fmtMs(turn.duration_ms)}</span>
+        <span class="chip">${turn.steps.filter(s => !s.side).length} steps</span>
+        <span class="chip" title="${esc(START_NOTE)}">${turn.started_at}</span>
         <span class="chip">in ${fmtK(turn.usage.in)} / out ${fmtK(turn.usage.out)}</span>
-        ${chainChip}${toolChip}${compressChip}${contentChip}${retryChip}${failChip}
+        ${chainChip}${sideChip}${tools ? toolChip : toolChipCost}${compressChip}${divergedChip}${retryChip}${failChip}
       </span>
     </div>
-    <div class="body"><div class="steps">${turn.steps.map(s => stepHTML(s) + callsHTML(s)).join("")}</div></div>
+    ${story}
+    <div class="body"><div class="steps">${failuresHTML(turn)}${axisRow}${
+      turn.steps.map(s => stepHTML(s, turn, axis, hot[s.seq]) + callsHTML(s)).join("")}</div></div>
   </div>`;
 }
 
@@ -677,6 +1244,21 @@ const clockSec = s => { const [h, m, sec] = s.split(":").map(Number); return h *
     s.gap_ms = prevEnd === null ? null : Math.round((start - prevEnd) * 1000);
     prevEnd = start + s.latency_ms / 1000;
   }));
+})();
+
+// harness 侧耗时:同链下一步的开始 − 本步结束。与后端同一口径:只走同链后继,
+// 旁路请求的到达不算进主路步;链末步没有后继,留空(界面显示「—」)。
+(function computeHarness() {
+  const chainKey = s => (s.side ? "side#" + s.side_chain : "main");
+  const all = SESSION.turns.flatMap(t => t.steps);
+  all.forEach((s, i) => {
+    const key = chainKey(s);
+    const next = all.slice(i + 1).find(n => chainKey(n) === key);
+    if (!next) return;
+    const gap = clockMs(next.ts) - (clockMs(s.ts) + s.latency_ms);
+    // 负值不赋值:那是「不可测」,界面显示「—」而不是 0。
+    if (gap >= 0) s.harness_ms = gap;
+  });
 })();
 
 // 工具视图:按工具名聚合调用与状态(对齐 waku 的 Tools tab)
@@ -828,8 +1410,15 @@ document.getElementById("app").innerHTML = `
       <div class="stat"><div class="k">cache</div><div class="v">${fmtK(SESSION.usage.cache)}</div></div>
       <div class="stat"><div class="k">avg 延迟</div><div class="v">${fmtMs(SESSION.latency.avg_ms)}</div></div>
       <div class="stat"><div class="k">max 延迟</div><div class="v">${fmtMs(SESSION.latency.max_ms)}</div></div>
+      <div class="stat" title="${esc(USAGE_NOTE)}">
+        <div class="k">协议</div><div class="v proto">${esc(SESSION.protocol)}</div></div>
+      ${chainsStats()}
+      ${kindsBar()}
     </div>
+    <div class="muted degr-example">${esc(CHAIN_DEGRADED_EXAMPLE)}</div>
+    <div class="muted degr-example">${esc(MIXED_PROTOCOL_EXAMPLE)}</div>
   </div>
+  ${legendHTML()}
   ${SESSION.turns.map((t, i) => turnHTML(t, i === 3)).join("")}
   </div>
   <div id="view-tools" hidden>${toolsViewHTML()}</div>
@@ -874,6 +1463,17 @@ document.querySelectorAll(".turn > .head").forEach(head => {
     head.querySelector(".caret").textContent = turn.classList.contains("open") ? "▾" : "▸";
   });
 });
+
+// rerender 重新渲染已展开的 step 详情:差异块的视图切换与上下文展开用。
+// 真实实现里「展开上下文」会带 ctx 参数重新请求;原型用 dfCtx 就地切片模拟。
+window.rerender = function () {
+  document.querySelectorAll(".step.open").forEach(stepEl => {
+    const seq = Number(stepEl.dataset.seq);
+    const step = SESSION.turns.flatMap(t => t.steps).find(s => s.seq === seq);
+    const detail = stepEl.querySelector(".detail");
+    if (step && detail) detail.innerHTML = detailHTML(step);
+  });
+};
 
 document.querySelectorAll(".step").forEach(stepEl => {
   const head = stepEl.querySelector(".head");
