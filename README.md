@@ -24,32 +24,32 @@ make lint       # gofmt + golangci-lint + sqlc diff(防生成漂移)
 
 ```bash
 ./bin/ds-context \
-  --listen 127.0.0.1:8080 \
+  --listen 127.0.0.1:8399 \
   --data-dir ~/.ds-context \
   --admin-password '你的口令'
 ```
 
 | 参数 | 默认 | 说明 |
 |---|---|---|
-| `--listen` | `127.0.0.1:8080` | 监听地址(默认仅本机) |
+| `--listen` | `127.0.0.1:8399` | 监听地址(默认仅本机;loopback 同时监听 IPv4 与 IPv6) |
 | `--data-dir` | `~/.ds-context` | 数据目录(SQLite 数据文件) |
 | `--admin-password` | 环境变量 `DS_CONTEXT_ADMIN_PASSWORD` | 控制台管理员口令;未设置则控制台登录不可用 |
 
 ## 快速上手
 
-1. 打开控制台 `http://127.0.0.1:8080/console`,用管理员口令登录;
+1. 打开控制台 `http://127.0.0.1:8399/console`,用管理员口令登录;
 2. **接入**:新建 provider(协议 `anthropic-messages` 或 `openai-chat`、Base URL、API Key、测试模型),点「测试连接」验证(以测试模型发一条 1-token 最小请求);
 3. **模型目录**:建立「客户端可见名 → provider + 上游模型名」的映射;
 4. **客户端密钥**:生成 key(明文仅展示一次);
 5. 接入客户端——例如 Claude Code:
 
    ```bash
-   export ANTHROPIC_BASE_URL=http://127.0.0.1:8080
+   export ANTHROPIC_BASE_URL=http://127.0.0.1:8399
    export ANTHROPIC_AUTH_TOKEN=dsctx_xxxxxxxx    # 控制台生成的 key
    claude
    ```
 
-   或 OpenAI SDK:`base_url = http://127.0.0.1:8080/v1`,`api_key` 填网关 key。
+  或 OpenAI SDK:`base_url = http://127.0.0.1:8399/v1`,`api_key` 填网关 key。
 6. 请求完成后,数据文件中 `requests` 表即可看到请求记录。
 
 换上游只需在控制台改模型目录指向的 provider,客户端无需变动。

@@ -16,14 +16,14 @@
 
 ```bash
 ./bin/ds-context \
-  --listen 127.0.0.1:8080 \
+  --listen 127.0.0.1:8399 \
   --data-dir ~/.ds-context \
   --admin-password '******'
 ```
 
 - 单二进制、单实例;配置与请求记录都存在 `--data-dir` 下的 SQLite 文件里,重启不丢;
-- 默认只监听本机(示例端口 8080);
-- 浏览器打开 `http://127.0.0.1:8080/console` 进入控制台。
+- 默认只监听本机(示例端口 8399);
+- 浏览器打开 `http://127.0.0.1:8399/console` 进入控制台。
 
 ## 2. 控制台:配置多个 Provider
 
@@ -65,14 +65,14 @@ Provider 是「**接入**」实体:协议类型、上游地址、凭据、启用
 ## 3. 在 Claude Code 中配置
 
 ```bash
-export ANTHROPIC_BASE_URL=http://127.0.0.1:8080
+export ANTHROPIC_BASE_URL=http://127.0.0.1:8399
 export ANTHROPIC_AUTH_TOKEN=dsctx_xxxxxxxx    # 网关生成的 client key
 claude
 ```
 
 - 网关同时接受 `Authorization: Bearer <key>`(对应 `ANTHROPIC_AUTH_TOKEN`)与 `x-api-key: <key>`(对应 `ANTHROPIC_API_KEY`),两种配法都行;
 - Claude Code 里使用的模型名(如 `claude-sonnet-4-5`)必须在**模型目录**里存在;不在目录里的模型会收到明确的 404 错误,而不是被悄悄转发到某家上游;
-- 同类:OpenAI SDK 把 `base_url` 指向 `http://127.0.0.1:8080/v1`、`api_key` 填网关签发的 key 即可。
+- 同类:OpenAI SDK 把 `base_url` 指向 `http://127.0.0.1:8399/v1`、`api_key` 填网关签发的 key 即可。
 
 ## 4. 网关如何处理一次请求
 
