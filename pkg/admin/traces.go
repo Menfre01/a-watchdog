@@ -115,10 +115,16 @@ func (a *Admin) analyzeSession(ctx context.Context, sessionID string) (*sessionA
 	// (实测:Claude Code 的「生成标题」与「安全监控」是两条互不相交的链),
 	// 编号让界面能把它们区分开。
 	sideChainOf := make(map[int64]int, len(steps))
-	for n, chain := range chains[1:] {
+	sideN := 0
+	for _, chain := range chains {
+		// 主链不再是 chains[0]:一次性请求可能先到。按 Kind 跳过,编号保持 1 起连续。
+		if chain.Kind == trace.ChainMain {
+			continue
+		}
+		sideN++
 		for _, idx := range chain.Steps {
 			sideSteps[steps[idx].Seq] = true
-			sideChainOf[steps[idx].Seq] = n + 1
+			sideChainOf[steps[idx].Seq] = sideN
 		}
 	}
 	// prevIdxOf 记录每条链内部的前驱关系:diff 与新增区间都得跟同链上一步比较。

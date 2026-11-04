@@ -124,7 +124,8 @@ func (an *sessionAnalysis) skeletonJSON() map[string]any {
 	}
 }
 
-// chainSummary 汇总会话内的链:含会话首步的那条是主链,其余是旁路链。
+// chainSummary 汇总会话内的链:主链是至少两个非重复步的链中最早者,其余是旁路链。
+// 没有这样的链时取含会话首步者。
 // 链归属是推断,判据是两级指纹(见 trace.AnalyzeSession)。任一步缺 system 指纹时
 // 归属退化为不拆分,此时不给链数:退化的「1 条链」不是事实(admin-console 规范)。
 func (an *sessionAnalysis) chainSummary() map[string]any {
@@ -289,7 +290,7 @@ func (an *sessionAnalysis) turnStory(seqs []int64, indexOf map[int64]int) []map[
 	}
 	parts := make([]map[string]any, 0, 4)
 	if firstIdx >= 0 {
-		parts = append(parts, storyPart(kindStoryLabel(an.deltas[firstIdx].Kind), an.steps[firstIdx].Seq))
+		parts = append(parts, storyPart(kindStoryLabel(an.deltas[firstIdx].Kind, firstIdx), an.steps[firstIdx].Seq))
 	}
 	parts = append(parts, storyPart(lineChangeText(added, removed), 0))
 	if mark != "" {
@@ -311,10 +312,14 @@ func storyPart(text string, seq int64) map[string]any {
 }
 
 // kindStoryLabel 给分类取叙述用词:与步徽标同一套词,不另造说法。
-func kindStoryLabel(kind trace.DeltaKind) string {
+// firstIdx 是会话内的步下标:只有会话首步才称「会话首步」,链首步一律称「首步」。
+func kindStoryLabel(kind trace.DeltaKind, firstIdx int) string {
 	switch kind {
 	case trace.DeltaNew:
-		return "会话首步"
+		if firstIdx == 0 {
+			return "会话首步"
+		}
+		return "首步"
 	case trace.DeltaAdded:
 		return "追加"
 	case trace.DeltaRetry:
@@ -395,10 +400,14 @@ func (an *sessionAnalysis) kindDistribution() map[string]any {
 
 // stepNote 给出该步的判定理由。旁路步的说法单独写:链首的通用文案是
 // 「会话首条快照,无前序可比」,那是主路首步的说法,套到旁路首步上会牛头不对马嘴。
+// 主路首步也可能晚于会话首步(一次性自动请求先到),此时同样不能自称「会话首条」。
 func (an *sessionAnalysis) stepNote(i int) string {
 	delta := an.deltas[i]
 	n, isSide := an.sideChainOf[an.steps[i].Seq]
 	if !isSide {
+		if delta.Kind == trace.DeltaNew && i > 0 {
+			return "主链首步:本链此前没有请求,会话内的前序请求都属于旁路链"
+		}
 		return delta.Note()
 	}
 	if delta.Kind == trace.DeltaNew {
@@ -562,7 +571,7 @@ func (an *sessionAnalysis) stepDetailJSON(i int, full bool, ctxLines int) map[st
 	out := map[string]any{
 		"seq":       step.Seq,
 		"ts":        step.Ts,
-		"delta":     map[string]any{"kind": string(delta.Kind), "note": delta.Note()},
+		"delta":     map[string]any{"kind": string(delta.Kind), "note": an.stepNote(i)},
 		"inherited": delta.PrefixLen,
 		"tools":     an.toolsOfSeq(step.Seq),
 		"messages":  an.added[i],

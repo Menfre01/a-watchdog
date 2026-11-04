@@ -4,7 +4,8 @@ package trace
 type ChainKind string
 
 const (
-	// ChainMain 是主链:含会话首步的那条。
+	// ChainMain 是主链:至少有两个非重复步的链中最早的一条。
+	// 没有这样的链时,主链是含会话首步的链。
 	ChainMain ChainKind = "main"
 	// ChainSide 是旁路链:首条消息指纹与主链不同的请求。
 	ChainSide ChainKind = "side"
@@ -29,7 +30,14 @@ type SessionChain struct {
 // 时退回上一级判据。判据只用消息本身,不解析客户端特有的标记、不跟踪工具调用
 // 关系,任何协议都适用。
 //
-// 主链是含会话首步的那条(会话的第一条请求必然是用户对话);其余为旁路。
+// 主链是至少有两个非重复步的链中时间最早的一条。重复步(客户端重发)
+// 不构成持续性,不计入门槛。一次性链不参与主链竞争:客户端会在会话开头
+// 发出「生成标题」等一次性请求,它可能成为时间上的首步,但主对话必然在其后
+// 反复出现。全部链都不足两个非重复步时退回含会话首步者。
+//
+// 「至少两个非重复步」只作门槛,不比较步数大小:步数与上下文长度都不是主链
+// 判据(实测:27 步的监控链超过 15 步的对话链;45 行的子 agent 链超过 42 行
+// 的主对话链)。
 func AnalyzeSession(lines []SnapshotLines) []SessionChain {
 	if len(lines) == 0 {
 		return nil
@@ -55,25 +63,46 @@ func AnalyzeSession(lines []SnapshotLines) []SessionChain {
 		chains[matched].Steps = append(chains[matched].Steps, i)
 		chains[matched].Deltas = append(chains[matched].Deltas, Compare(last, lines[i]))
 	}
+	// 主链:至少两个非重复步的链中最早的一条。链的切片顺序即各链首次出现顺序,
+	// 故第一个满足门槛的链就是主链。没有这样的链时退回链 0(含会话首步者)。
+	mainIdx := 0
+	for j := range chains {
+		if persistentSteps(chains[j]) >= 2 {
+			mainIdx = j
+			break
+		}
+	}
+	chains[mainIdx].Kind = ChainMain
+	for j := range chains {
+		if j != mainIdx {
+			chains[j].Kind = ChainSide
+		}
+	}
 	// 重复组按链统计:跨链的相同内容不算重复。
 	for j := range chains {
 		markRetryGroups(chains[j].Deltas)
 		// 旁路链不标「上下文清零」:该语义只对主对话成立(/clear 是用户对主对话
 		// 的操作)。旁路请求每次都是独立的 system + 输入,没有"上下文"可言;
 		// 而它们本身往往就是 3 行左右,恰好命中该判据(实测:监控链跨 turn 时
-		// 前缀不共享,被误标为上下文清零)。
-		if j > 0 {
+		// 前缀不共享,被误标为上下文清零)。判据用 Kind,不假设主链位于下标 0。
+		if chains[j].Kind == ChainSide {
 			for k := range chains[j].Deltas {
 				chains[j].Deltas[k].Cleared = false
 			}
 		}
 	}
-	// 首条链含会话首步,即主链;其余为旁路。
-	chains[0].Kind = ChainMain
-	for j := 1; j < len(chains); j++ {
-		chains[j].Kind = ChainSide
-	}
 	return chains
+}
+
+// persistentSteps 返回链中非重复步的数量。重试只重复已有内容,不构成持续性证据。
+func persistentSteps(chain SessionChain) int {
+	n := 0
+	for _, delta := range chain.Deltas {
+		if delta.Kind != DeltaRetry {
+			n++
+		}
+	}
+	return n
 }
 
 // sameChain 判断两份快照是否属于同一条链:两级指纹都相同。

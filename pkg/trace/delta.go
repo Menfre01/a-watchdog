@@ -9,7 +9,7 @@ import (
 type DeltaKind string
 
 const (
-	DeltaNew     DeltaKind = "new"     // 会话首步:无前序
+	DeltaNew     DeltaKind = "new"     // 链首步:无前序
 	DeltaAdded   DeltaKind = "added"   // 前缀延伸:只在尾部追加
 	DeltaRetry   DeltaKind = "retry"   // 与上一步完全相同(客户端重发)
 	DeltaFork    DeltaKind = "fork"    // 前缀相同,尾部被替换或删除

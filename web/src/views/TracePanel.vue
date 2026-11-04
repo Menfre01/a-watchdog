@@ -657,7 +657,7 @@ function statusClass(code: number): string {
 }
 
 // kindLabel 给分类徽标取文案:旁路步与主路共用同一套,链的区分由 tab 承担。
-// new 只有一种语义:一条链的起点。会话首步与旁路链首步同义(都是链起点)。
+// new 只有一种语义:一条链的起点。主链首步可能晚于会话首步,但仍是本链起点。
 function kindLabel(step: TraceStep): string {
   if (step.cleared) return '上下文清零'
   if (step.compress) return `压缩 ${step.compress.before_lines}→${step.compress.after_lines} 行`
@@ -987,7 +987,6 @@ function inlineHTML(parts: InlineParts | null | undefined, row: TraceDiffRow): s
       </div>
       <div v-if="protocols.length > 1" class="muted small proto-mixed">{{ MIXED_PROTOCOL_NOTE }}</div>
     </div>
-
 
     <div class="turn-nav" role="navigation" aria-label="轮次导航">
       <span class="pos">第 {{ turnPosition }} / {{ skeleton.turns.length }} 轮</span>
@@ -1644,118 +1643,6 @@ function inlineHTML(parts: InlineParts | null | undefined, row: TraceDiffRow): s
 }
 .proto-mixed {
   flex: 1 0 100%;
-}
-
-/* 分类分布条:段是分类,细分另列,分项之和等于步数 */
-.kinds {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  flex: 1 0 100%;
-  min-width: 0;
-}
-.kinds-bar {
-  display: flex;
-  height: 8px;
-  border-radius: var(--r-sm);
-  overflow: hidden;
-  background: var(--surface-2);
-}
-.kinds-bar .seg {
-  display: block;
-  height: 100%;
-}
-.kinds-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 10px;
-  font-size: var(--fs-11);
-  color: var(--muted);
-}
-.kinds-legend .sw {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 2px;
-  margin-right: 4px;
-}
-/* 分布条的口径说明独占一行:它是文案,要和统计数字分开 */
-.kinds-note {
-  flex: 1 0 100%;
-}
-/* 图例条目的补充口径:与分布条同源的那句 */
-.legend-entry-note {
-  color: var(--muted);
-}
-/* 分类配色:顺序固定(首步 / 追加 / 重复 / 分叉 / 改写 / 无重合),与骨架顺序一致 */
-.k0 {
-  background: var(--muted);
-}
-.k1 {
-  background: var(--accent);
-}
-.k2 {
-  background: var(--warn);
-}
-.k3 {
-  background: var(--danger);
-}
-.k4 {
-  background: var(--infer);
-}
-.k5 {
-  background: var(--ok);
-}
-
-/* 图例:文案来自 trailLegend.ts,原型与冒烟脚本复用同一批字符串 */
-.legend {
-  margin: 0 0 12px;
-  font-size: 12px;
-  color: var(--muted);
-}
-.legend > summary {
-  cursor: pointer;
-  color: var(--accent);
-}
-.legend-groups {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  margin-top: 8px;
-}
-.legend-group {
-  flex: 1 1 260px;
-  min-width: 240px;
-}
-.legend-title {
-  margin-bottom: 4px;
-  font-size: var(--fs-11);
-  color: var(--muted);
-  text-transform: uppercase;
-}
-.legend-item {
-  display: flex;
-  gap: 6px;
-  line-height: 1.6;
-}
-.legend-item .from {
-  flex: 0 0 44px;
-  font-size: 10px;
-  color: var(--muted);
-}
-.legend-item .from.measured {
-  color: var(--ok);
-}
-.legend-item .from.inferred {
-  color: var(--infer);
-}
-.legend-item .from.lazy {
-  color: var(--warn);
-}
-.legend-note {
-  margin: 8px 0 0;
-  color: var(--muted);
-  line-height: 1.6;
 }
 
 /* 一行叙述:每一段指向对应步,点击即跳转 */

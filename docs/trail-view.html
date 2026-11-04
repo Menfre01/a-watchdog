@@ -943,7 +943,8 @@ const LINE_LEGEND = [
   { text: "实线:实测值,直接来自记录侧字段", from: "实测" },
   { text: "虚线:推断值,由行指纹比对得出", from: "推断" },
   { text: "虚线灰框与虚线下划线:需解析,可渐进填充", from: "需解析" },
-  { text: "斜纹:harness 侧时间,由同链相邻两步的时间戳推得", from: "推断" }
+  { text: "斜纹:harness 侧时间,由同链相邻两步的时间戳推得", from: "推断" },
+  { text: "工具色块:工具事件窗口,由 Pre/Post 钩子的到达时刻配对,含客户端处理", from: "实测" }
 ];
 const KIND_LEGEND = [
   { text: "首步:会话第一条快照,无前序可比", from: "推断" },
@@ -988,7 +989,7 @@ const JUDGE_NOTE =
 const MIXED_PROTOCOL_EXAMPLE = "多协议时该处显示:" + MIXED_PROTOCOL_NOTE;
 // 链汇总的两条口径文案:与 web/src/trailLegend.ts 逐字一致,冒烟脚本会比对。
 const CHAIN_NOTE =
-  "推断:同一条链的判据是 system 指纹与首条 user 指纹两级相同。主链是含会话首步的那条,恒为 1 条。";
+  "推断:同一条链的判据是 system 指纹与首条 user 指纹两级相同。主链取至少两个非重复步的链中最早的一条,没有这样的链时取含会话首步者。恒为 1 条。";
 const TURN_CHAIN_NOTE =
   "口径:本轮出现的链。会话层的「链」是整个会话的链数,两者不同。旁路为客户端自动请求(标题生成 / 安全监控等),与主路分列呈现。";
 // 退化形态:缺 system 指纹时链归属退化为不拆分,链数显示「—」并说明原因。
@@ -1018,6 +1019,13 @@ function chainsStats() {
       <div class="v infer" title="${esc(CHAIN_NOTE)}">${c.main} + ${c.side}</div></div>
     <div class="stat" title="${esc(CHAIN_NOTE)}"><div class="k">旁路</div>
       <div class="v">${c.sideSteps} 步 · in ${fmtK(c.sideIn)} / out ${fmtK(c.sideOut)}</div></div>`;
+}
+
+// 时间构成:模型与工具两段;分类分布不再进入统计卡。
+function compositionHTML() {
+  return `<div class="stat"><div class="k">机器时间</div>
+      <div class="v">模型 46s · 14 次 / 工具 10s · 8 次</div></div>
+    <div class="stat"><div class="k">工具占比</div><div class="v">18%</div></div>`;
 }
 
 // 分类分布:从数组推导,不手写。分项之和等于步数,细分另列(与后端同一口径)。
@@ -1149,7 +1157,7 @@ function stepHTML(step, turn, axis, hot) {
   const toolChip = step.tools.length ? `<span class="chip">${step.tools.length} 个工具</span>` : "";
   // 被拒/短路的请求:携带网关侧归因;归属由快照承载,无快照的请求不进入轨迹
   const errChip = step.error_kind ? `<span class="chip errc" title="网关侧归因">${esc(step.error_kind)}</span>` : "";
-  // new 只有一种语义:一条链的起点。旁路链的首步与会话首步同义(都是链起点)。
+  // new 只有一种语义:一条链的起点。主链首步可能晚于会话首步,但仍是本链起点。
   const newLabel = badgeLabel[step.delta_kind];
   let deltaBadge;
   if (step.cleared) deltaBadge = `<span class="badge compress" title="${esc(deltaNote(step))}">上下文清零</span>`;
@@ -1413,12 +1421,11 @@ document.getElementById("app").innerHTML = `
       <div class="stat" title="${esc(USAGE_NOTE)}">
         <div class="k">协议</div><div class="v proto">${esc(SESSION.protocol)}</div></div>
       ${chainsStats()}
-      ${kindsBar()}
+      ${compositionHTML()}
     </div>
     <div class="muted degr-example">${esc(CHAIN_DEGRADED_EXAMPLE)}</div>
     <div class="muted degr-example">${esc(MIXED_PROTOCOL_EXAMPLE)}</div>
   </div>
-  ${legendHTML()}
   ${SESSION.turns.map((t, i) => turnHTML(t, i === 3)).join("")}
   </div>
   <div id="view-tools" hidden>${toolsViewHTML()}</div>

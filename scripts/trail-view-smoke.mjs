@@ -52,21 +52,15 @@ function runPrototype() {
 const out = runPrototype()
 const countOf = (needle) => out.split(needle).length - 1
 
-// legendTexts 抽出 trailLegend.ts 里的图例文案,用于与原型逐条比对。
-const legendTexts = [...legendSource.matchAll(/\{ text: '([^']+)'/g)].map((m) => m[1])
-
 // 口径文案(export const X_NOTE = '...'):每一条都必须出现在原型的渲染结果里。
 // 口径文案散在两处正是漂移的起点,所以这里按名字取出来逐条比对。
 const noteTexts = [...legendSource.matchAll(/export const ([A-Z_]+_NOTE) =\s*'([^']+)'/g)].map((m) => ({
   name: m[1],
   text: m[2],
 }))
-const overlapNote = noteTexts.find((note) => note.name === 'NO_OVERLAP_NOTE')
 
 const checks = [
-  ['分类分布条渲染出分段', countOf('class="seg k') >= 5],
-  ['分类分布不含 0 步的段', !out.includes('class="seg k5"')],
-  ['图例文案与 trailLegend.ts 一致', legendTexts.length >= 10 && legendTexts.every((text) => out.includes(text))],
+  ['统计卡给出模型与工具', out.includes('机器时间') && out.includes('工具占比')],
   ['叙述渲染出可点片段', out.includes('class="part link"') && out.includes('class="arrow"')],
   ['失败清单列出状态码与原因', out.includes('class="failures"') && out.includes('状态码 429')],
   ['时间轴给出轴头与端口标注', out.includes('class="head axis-row"') && out.includes('轴覆盖本轮全部请求')],
@@ -88,15 +82,14 @@ const checks = [
   ['起始时间与轴口径写明差别', out.includes('轴左端取本轮全部请求里最早的一次')],
   ['轮次 chip 只数主路步', out.includes('>3 steps<')],
   ['会话头给出协议', out.includes('>anthropic-messages<')],
-  ['用量口径写明两套加法', out.includes('in + cache 等于总输入') && out.includes('in + cache 会重复计数')],
+  ['用量口径写明两套加法', out.includes('与 cache 可相加') && out.includes('cache 是子集')],
   ['混合协议给出不可相加说明', out.includes('跨协议的用量不可直接相加')],
-  ['全部口径文案同步', noteTexts.length >= 8 && noteTexts.every((note) => out.includes(note.text))],
-  ['无重合口径出现在分布条与图例两处', !!overlapNote && out.split(overlapNote.text).length - 1 >= 2],
+  ['全部口径文案同步', noteTexts.length >= 7 && noteTexts.every((note) => out.includes(note.text))],
   ['分类用词为无重合', out.includes('无重合') && out.includes('⇄ 不相交')],
   ['原型不再出现旧词', !out.includes('新链')],
 ]
 
-// 产物检查:形态基准与图例文案改了,而构建产物没跟上时,界面看到的还是旧文案。
+// 产物检查:形态基准与口径文案改了,而构建产物没跟上时,界面看到的还是旧文案。
 const assetsDir = resolve(root, 'pkg/admin/dist/assets')
 try {
   const bundle = readdirSync(assetsDir)
@@ -104,10 +97,10 @@ try {
     .map((name) => readFileSync(resolve(assetsDir, name), 'utf8'))
     .join('\n')
   checks.push([
-    '构建产物含图例与轴口径文案',
-    legendTexts.every((text) => bundle.includes(text)) &&
-      noteTexts.every((note) => bundle.includes(note.text)) &&
-      bundle.includes('轴覆盖本轮全部请求'),
+    '构建产物含口径文案',
+    noteTexts.every((note) => bundle.includes(note.text)) &&
+      bundle.includes('轴覆盖本轮全部请求') &&
+      bundle.includes('工具占比'),
   ])
 } catch {
   console.log('SKIP 构建产物检查:未找到 pkg/admin/dist/assets(先跑 make build)')

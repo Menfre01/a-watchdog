@@ -49,9 +49,9 @@ func TestAnalyzeSessionByFingerprint(t *testing.T) {
 	}
 }
 
-// TestAnalyzeSessionMainIsFirstChain 覆盖主链判定:含会话首步的链恒为主链,
-// 即便它的末步比其他链短——不比较长度,只看首步归属。
-func TestAnalyzeSessionMainIsFirstChain(t *testing.T) {
+// TestAnalyzeSessionDoesNotCompareChainLength 覆盖主链门槛:主链只有 2 步,
+// 更长的 agent 链仍是旁路——门槛只看持续性,不比较步数。
+func TestAnalyzeSessionDoesNotCompareChainLength(t *testing.T) {
 	steps := []SnapshotLines{
 		chainOf(t, "main", "sys", "u1"),                          // 首步
 		chainOf(t, "agent", "agent-sys", "p1", "p2", "p3", "p4"), // 更长
@@ -59,7 +59,7 @@ func TestAnalyzeSessionMainIsFirstChain(t *testing.T) {
 	}
 	chains := AnalyzeSession(steps)
 	if chains[0].Kind != ChainMain || len(chains[0].Steps) != 2 {
-		t.Fatalf("首条链 = %+v, want 含会话首步的主链", chains[0])
+		t.Fatalf("首条链 = %+v, want 主链", chains[0])
 	}
 	if chains[1].Kind != ChainSide {
 		t.Errorf("第二条链类型 = %q, want side", chains[1].Kind)
