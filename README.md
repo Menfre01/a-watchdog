@@ -27,14 +27,16 @@ make lint       # gofmt + golangci-lint + sqlc diff（防代码漂移）
 ```bash
 ./bin/awatchdog \
   --listen 127.0.0.1:8399 \
-  --data-dir ~/.awatchdog \
+  --data-dir ./.awatchdog \
   --admin-password '你的口令'
 ```
+
+仓库开发时数据目录固定在 `./.awatchdog`。该目录已在 `.gitignore` 中忽略。
 
 | 参数 | 默认 | 说明 |
 |---|---|---|
 | `--listen` | `127.0.0.1:8399` | 监听地址。默认仅本机。loopback 同时监听 IPv4 与 IPv6。 |
-| `--data-dir` | `~/.awatchdog` | 数据目录（SQLite 数据文件）。 |
+| `--data-dir` | `~/.awatchdog`（仓库开发用 `./.awatchdog`） | 数据目录（SQLite 数据文件）。 |
 | `--admin-password` | 环境变量 `AWATCHDOG_ADMIN_PASSWORD` | 控制台管理员口令。未提供时控制台登录不可用。 |
 
 ## 快速上手

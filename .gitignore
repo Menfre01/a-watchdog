@@ -31,6 +31,7 @@ __pycache__/
 *.pyc
 
 # 运行时数据文件(SQLite;--data-dir 指到仓库内时产生)
+.awatchdog/
 *.db
 *.db-wal
 *.db-shm

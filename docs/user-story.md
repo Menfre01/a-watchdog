@@ -17,7 +17,7 @@
 ```bash
 ./bin/awatchdog \
   --listen 127.0.0.1:8399 \
-  --data-dir ~/.awatchdog \
+  --data-dir ./.awatchdog \
   --admin-password '******'
 ```
 
