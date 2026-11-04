@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"testing"
 
-	"ds-context/pkg/config/db"
-	"ds-context/pkg/trace"
+	"awatchdog/pkg/config/db"
+	"awatchdog/pkg/trace"
 )
 
 // TestChainSummary 覆盖会话链汇总:主链恒为 1 条,旁路按链去重计数,

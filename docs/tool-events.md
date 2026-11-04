@@ -33,28 +33,28 @@ HTTP hook 直接把事件 JSON 发到网关，不需要脚本:
       "type": "http",
       "url": "http://127.0.0.1:8399/v1/tool-events?client=claude-code",
       "timeout": 5,
-      "headers": { "Authorization": "Bearer $DSCTX_KEY" },
-      "allowedEnvVars": ["DSCTX_KEY"]
+      "headers": { "Authorization": "Bearer $AWATCHDOG_KEY" },
+      "allowedEnvVars": ["AWATCHDOG_KEY"]
     }]}],
     "PostToolUse": [{ "matcher": "*", "hooks": [{
       "type": "http",
       "url": "http://127.0.0.1:8399/v1/tool-events?client=claude-code",
       "timeout": 5,
-      "headers": { "Authorization": "Bearer $DSCTX_KEY" },
-      "allowedEnvVars": ["DSCTX_KEY"]
+      "headers": { "Authorization": "Bearer $AWATCHDOG_KEY" },
+      "allowedEnvVars": ["AWATCHDOG_KEY"]
     }]}],
     "PostToolUseFailure": [{ "matcher": "*", "hooks": [{
       "type": "http",
       "url": "http://127.0.0.1:8399/v1/tool-events?client=claude-code",
       "timeout": 5,
-      "headers": { "Authorization": "Bearer $DSCTX_KEY" },
-      "allowedEnvVars": ["DSCTX_KEY"]
+      "headers": { "Authorization": "Bearer $AWATCHDOG_KEY" },
+      "allowedEnvVars": ["AWATCHDOG_KEY"]
     }]}]
   }
 }
 ```
 
-把 `DSCTX_KEY` 设成控制台里生成的密钥。hook 失败默认不阻塞工具调用。上报失败不会影响 Claude Code 正常工作。
+把 `AWATCHDOG_KEY` 设成控制台里生成的密钥。hook 失败默认不阻塞工具调用。上报失败不会影响 Claude Code 正常工作。
 
 ## Codex
 
@@ -67,7 +67,7 @@ matcher = ""
 
 [[hooks.PreToolUse.hooks]]
 type = "command"
-command = "/path/to/dsctx-tool-event.sh pre"
+command = "/path/to/awatchdog-tool-event.sh pre"
 timeout = 5
 
 [[hooks.PostToolUse]]
@@ -75,7 +75,7 @@ matcher = ""
 
 [[hooks.PostToolUse.hooks]]
 type = "command"
-command = "/path/to/dsctx-tool-event.sh post"
+command = "/path/to/awatchdog-tool-event.sh post"
 timeout = 5
 ```
 
@@ -86,7 +86,7 @@ timeout = 5
 phase="$1"
 jq --arg phase "$phase" '. + {phase: $phase}' \
   | curl -sS -X POST "http://127.0.0.1:8399/v1/tool-events?client=codex" \
-      -H "Authorization: Bearer ${DSCTX_KEY}" \
+      -H "Authorization: Bearer ${AWATCHDOG_KEY}" \
       -H 'Content-Type: application/json' \
       --data-binary @- >/dev/null
 ```

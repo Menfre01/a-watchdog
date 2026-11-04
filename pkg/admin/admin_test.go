@@ -13,8 +13,8 @@ import (
 	"strings"
 	"testing"
 
-	"ds-context/pkg/config"
-	"ds-context/pkg/config/db"
+	"awatchdog/pkg/config"
+	"awatchdog/pkg/config/db"
 )
 
 // testPassword 是管理面测试口令。
@@ -257,7 +257,7 @@ func TestAdmin_ModelsKeysSettings(t *testing.T) {
 		Key string `json:"key"`
 	}
 	decode(t, resp, &createdKey)
-	if !strings.HasPrefix(createdKey.Key, "dsctx_") {
+	if !strings.HasPrefix(createdKey.Key, "awd_") {
 		t.Fatalf("generated key = %q", createdKey.Key)
 	}
 	if info, ok := store.Snapshot().LookupKey(config.HashClientKey(createdKey.Key)); !ok || !info.Enabled {

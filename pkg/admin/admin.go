@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"time"
 
-	"ds-context/pkg/config"
-	"ds-context/pkg/trace"
+	"awatchdog/pkg/config"
+	"awatchdog/pkg/trace"
 )
 
 // probeTimeout 是「测试连接」的最长等待时间。

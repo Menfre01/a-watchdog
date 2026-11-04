@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"ds-context/pkg/config"
-	"ds-context/pkg/config/db"
-	"ds-context/pkg/trace"
+	"awatchdog/pkg/config"
+	"awatchdog/pkg/config/db"
+	"awatchdog/pkg/trace"
 )
 
 // toolEventsMaxBody 是上报体的上限:事件只含标识与少量字段。

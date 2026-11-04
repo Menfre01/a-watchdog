@@ -10,13 +10,13 @@ import (
 	"testing"
 	"time"
 
-	"ds-context/pkg/chain"
-	"ds-context/pkg/config"
-	"ds-context/pkg/config/db"
+	"awatchdog/pkg/chain"
+	"awatchdog/pkg/config"
+	"awatchdog/pkg/config/db"
 )
 
 // testClientKey 是测试用客户端密钥明文。
-const testClientKey = "dsctx_test_key_abcdef"
+const testClientKey = "awd_test_key_abcdef"
 
 // newStore 打开临时配置库(测试辅助)。
 func newStore(t *testing.T) *config.Store {
@@ -54,7 +54,7 @@ func okHandler(called *bool) chain.Handler {
 func createTestKey(t *testing.T, s *config.Store) {
 	t.Helper()
 	if _, err := s.CreateClientKey(context.Background(), db.CreateClientKeyParams{
-		Name: "cli", KeyHash: config.HashClientKey(testClientKey), KeyPrefix: "dsctx_te", Enabled: 1,
+		Name: "cli", KeyHash: config.HashClientKey(testClientKey), KeyPrefix: "awd_te", Enabled: 1,
 	}); err != nil {
 		t.Fatalf("CreateClientKey() error = %v", err)
 	}

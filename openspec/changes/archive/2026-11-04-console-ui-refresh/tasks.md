@@ -4,13 +4,13 @@
 
 - [x] 1.1 新增 `web/src/styles/tokens.css`:定义颜色、间距、字号、圆角、焦点环变量，暗色在 `:root`,亮色在 `html[data-theme='light']`,两处都声明 `color-scheme`。该文件在 `main.ts` 中首个导入。验证：`pnpm typecheck` 通过，页面仍能正常渲染。
 - [x] 1.2 在 `web/index.html` 内联主题引导脚本并补 `<meta name="theme-color">`。验证：系统为暗色时首屏直接是暗色，无亮色闪帧。
-- [x] 1.3 新增 `web/src/theme.ts`,导出 `current`、`set`、`toggle`,统一读写 `dsctx.theme` 并同步 `data-theme`、`color-scheme`、`theme-color`。验证：切换后刷新页面，主题保持。
+- [x] 1.3 新增 `web/src/theme.ts`,导出 `current`、`set`、`toggle`,统一读写 `awatchdog.theme` 并同步 `data-theme`、`color-scheme`、`theme-color`。验证：切换后刷新页面，主题保持。
 
 ## 2. 外壳与响应式
 
 - [x] 2.1 新增 `web/src/components/AppShell.vue`:侧栏、折叠按钮、内容区 slot。折叠按钮带 `aria-expanded` 与 `aria-controls`,折叠态保留图标与 `aria-label`。验证：用 `Tab` 可聚焦折叠按钮并切换状态。
 - [x] 2.2 `App.vue` 改用 `AppShell`,保留鉴权与 tab 逻辑，导航项补 `aria-current="page"`,`<nav>` 补 `aria-label`。验证：`pnpm typecheck` 通过，五个 tab 均可切换。
-- [x] 2.3 折叠状态写入 `dsctx.sidebar`,刷新后保持。内容区 `padding` 改 `clamp(16px, 3vw, 32px)`,去掉固定 `max-width`。验证：折叠后刷新仍为折叠态，大屏内容区随视口加宽。
+- [x] 2.3 折叠状态写入 `awatchdog.sidebar`,刷新后保持。内容区 `padding` 改 `clamp(16px, 3vw, 32px)`,去掉固定 `max-width`。验证：折叠后刷新仍为折叠态，大屏内容区随视口加宽。
 - [x] 2.4 表格外包 `.table-scroll` 并设 `min-width`。720px 以下页面不出现整页横向滚动。验证：375px 视口下打开 providers 页，页面无整页横滚，表格可横滚。
 
 ## 3. 弹窗式编辑
@@ -33,6 +33,6 @@
 ## 5. 验证与收尾
 
 - [x] 5.1 `grep` 检查裸色值：令牌文件之外不再出现十六进制颜色。验证：命令无输出。
-- [x] 5.2 `pnpm typecheck`、`pnpm build`、`make build` 全部通过。验证：构建产物落在 `bin/ds-context`。
+- [x] 5.2 `pnpm typecheck`、`pnpm build`、`make build` 全部通过。验证：构建产物落在 `bin/awatchdog`。
 - [x] 5.3 `make smoke` 通过，确认轨迹图例文案未漂移。验证：退出码 0。
 - [x] 5.4 手工清单：折叠持久化、主题持久化与首屏不闪、375px 无整页横滚、弹窗 `Esc` 与回焦、键盘可展开轨迹。验证：五项逐条通过。

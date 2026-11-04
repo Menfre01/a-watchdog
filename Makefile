@@ -1,4 +1,4 @@
-# ds-context 构建入口。
+# awatchdog 构建入口。
 # 约定:构建动作统一经此驱动,不直接调用 go install(见 AGENTS.md)。
 SHELL     := bash
 GO        ?= go
@@ -8,7 +8,7 @@ SQLC      ?= sqlc
 ARGS      ?=
 STE_FILES ?=
 STE_BASELINE ?= 0
-BINARY    := bin/ds-context
+BINARY    := bin/awatchdog
 
 .PHONY: generate build run test lint lint-text smoke clean
 
@@ -28,13 +28,13 @@ build:
 	else \
 		echo ">> web/package.json 不存在,跳过前端构建"; \
 	fi
-	$(GO) build -trimpath -o $(BINARY) ./cmd/ds-context
+	$(GO) build -trimpath -o $(BINARY) ./cmd/awatchdog
 
 # run: 本地运行,示例: make run ARGS="--listen 127.0.0.1:8080"
 # 口令默认 admin(仅本机开发);改口令用 make run ADMIN_PASSWORD=xxx。
 ADMIN_PASSWORD ?= admin
 run:
-	$(GO) run ./cmd/ds-context --admin-password $(ADMIN_PASSWORD) $(ARGS)
+	$(GO) run ./cmd/awatchdog --admin-password $(ADMIN_PASSWORD) $(ARGS)
 
 # smoke:轨迹视图原型冒烟 —— 断言形态基准渲染出新形态,并与前端图例文案比对
 smoke:

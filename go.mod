@@ -1,4 +1,4 @@
-module ds-context
+module awatchdog
 
 go 1.25.0
 

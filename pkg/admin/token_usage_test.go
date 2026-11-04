@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"ds-context/pkg/trace"
+	"awatchdog/pkg/trace"
 )
 
 // TestAdmin_TraceSkeletonProtocol 覆盖协议字段:用量列的口径随协议不同

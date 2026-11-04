@@ -3,13 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ds-context 控制台</title>
+    <title>AWatchDog 控制台</title>
     <script>
       // 首屏主题引导:在样式表之前定好主题,避免亮色闪帧。
       // 色值一律来自 tokens.css,这里只决定属性,不写颜色。
       ;(function () {
         try {
-          var saved = localStorage.getItem('dsctx.theme')
+          var saved = localStorage.getItem('awatchdog.theme')
           document.documentElement.dataset.theme =
             saved === 'light' || saved === 'dark'
               ? saved

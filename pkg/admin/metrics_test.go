@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"ds-context/pkg/config/db"
+	"awatchdog/pkg/config/db"
 )
 
 // TestAdmin_RequestMetrics 覆盖请求指标:计数、错误率与分位数。

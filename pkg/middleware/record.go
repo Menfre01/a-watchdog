@@ -8,11 +8,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"ds-context/pkg/chain"
-	"ds-context/pkg/config"
-	"ds-context/pkg/config/db"
-	"ds-context/pkg/protocol"
-	"ds-context/pkg/trace"
+	"awatchdog/pkg/chain"
+	"awatchdog/pkg/config"
+	"awatchdog/pkg/config/db"
+	"awatchdog/pkg/protocol"
+	"awatchdog/pkg/trace"
 )
 
 // Recorder 是响应后处理环节:无论请求是否被短路,都异步落一条请求记录与轨迹。

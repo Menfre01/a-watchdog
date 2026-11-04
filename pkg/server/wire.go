@@ -4,10 +4,10 @@ import (
 	"context"
 	"log/slog"
 
-	"ds-context/pkg/chain"
-	"ds-context/pkg/config"
-	"ds-context/pkg/middleware"
-	"ds-context/pkg/protocol"
+	"awatchdog/pkg/chain"
+	"awatchdog/pkg/config"
+	"awatchdog/pkg/middleware"
+	"awatchdog/pkg/protocol"
 )
 
 // Wire 组装完整责任链:record(响应后处理)→ auth(准入)→ route(路由)→ 上游调用(终结点)。

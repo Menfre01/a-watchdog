@@ -5,9 +5,9 @@ import (
 	"encoding/hex"
 	"net/http"
 
-	"ds-context/pkg/config"
-	"ds-context/pkg/config/db"
-	"ds-context/pkg/protocol"
+	"awatchdog/pkg/config"
+	"awatchdog/pkg/config/db"
+	"awatchdog/pkg/protocol"
 )
 
 // ---- providers ----
@@ -266,7 +266,7 @@ func (a *Admin) handleCreateClientKey(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusInternalServerError, "generate key failed")
 		return
 	}
-	plain := "dsctx_" + hex.EncodeToString(raw)
+	plain := "awd_" + hex.EncodeToString(raw)
 	k, err := a.store.CreateClientKey(r.Context(), db.CreateClientKeyParams{
 		Name:      req.Name,
 		KeyHash:   config.HashClientKey(plain),

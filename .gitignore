@@ -14,8 +14,8 @@ coverage.out
 # 构建产物
 bin/
 dist/
-# go build 未指定 -o 时在仓库根落下的二进制(锚定根,不影响 cmd/ds-context/)
-/ds-context
+# go build 未指定 -o 时在仓库根落下的二进制(锚定根,不影响 cmd/awatchdog/)
+/awatchdog
 # 控制台前端产物:仅保留占位文件入库(go:embed 要求目录非空)
 !pkg/admin/dist/
 pkg/admin/dist/*

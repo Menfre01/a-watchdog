@@ -12,7 +12,7 @@ import (
 	"testing/fstest"
 	"time"
 
-	"ds-context/pkg/config/db"
+	"awatchdog/pkg/config/db"
 )
 
 func TestValidSession_Variants(t *testing.T) {

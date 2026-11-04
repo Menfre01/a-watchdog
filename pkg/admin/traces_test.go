@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"testing"
 
-	"ds-context/pkg/config"
-	"ds-context/pkg/config/db"
-	"ds-context/pkg/trace"
+	"awatchdog/pkg/config"
+	"awatchdog/pkg/config/db"
+	"awatchdog/pkg/trace"
 )
 
 // testSessionID 是测试会话的标识(key_id=1 的前缀形式)。

@@ -7,7 +7,7 @@ import (
 	"errors"
 	"testing"
 
-	"ds-context/pkg/config/db"
+	"awatchdog/pkg/config/db"
 )
 
 // traceFixture 返回一组最小可用的原始层参数与快照参数(测试夹具)。

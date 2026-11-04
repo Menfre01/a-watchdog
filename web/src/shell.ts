@@ -6,7 +6,7 @@ export interface ShellItem<Id extends string = string> {
   label: string
   icon: string
 }
-const STORAGE_KEY = 'dsctx.sidebar'
+const STORAGE_KEY = 'awatchdog.sidebar'
 
 // sidebarCollapsed 返回上次的折叠状态;默认展开。
 export function sidebarCollapsed(): boolean {

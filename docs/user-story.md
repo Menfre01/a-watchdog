@@ -1,6 +1,6 @@
 # 全流程用户故事：从控制台配置到一次请求
 
-> 故事对象：自托管 ds-context 网关的个人 / 小团队（本故事对应 C1「gateway-core」范围）。
+> 故事对象：自托管 awatchdog 网关的个人 / 小团队（本故事对应 C1「gateway-core」范围）。
 > 主角小明的两类调用方：**Claude Code**（Anthropic Messages 协议）与**自写的 OpenAI SDK 脚本**（OpenAI Chat 协议）。
 > 本文按「控制台配 Provider → Claude Code 接入 → 网关处理一次请求」的完整路径展开。
 
@@ -15,9 +15,9 @@
 ## 1. 启动网关
 
 ```bash
-./bin/ds-context \
+./bin/awatchdog \
   --listen 127.0.0.1:8399 \
-  --data-dir ~/.ds-context \
+  --data-dir ~/.awatchdog \
   --admin-password '******'
 ```
 
@@ -66,7 +66,7 @@ Provider 是「**接入**」实体:协议类型、上游地址、凭据、启用
 
 ```bash
 export ANTHROPIC_BASE_URL=http://127.0.0.1:8399
-export ANTHROPIC_AUTH_TOKEN=dsctx_xxxxxxxx    # 网关生成的 client key
+export ANTHROPIC_AUTH_TOKEN=awd_xxxxxxxx    # 网关生成的 client key
 claude
 ```
 
@@ -81,7 +81,7 @@ claude
 ```mermaid
 sequenceDiagram
     participant CC as Claude Code
-    participant GW as ds-context 网关
+    participant GW as awatchdog 网关
     participant UP as 上游 Provider(anthropic-official)
 
     CC->>GW: POST /v1/messages?beta=true(流式,model=claude-sonnet-4-5)

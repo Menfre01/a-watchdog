@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"ds-context/pkg/config/db"
+	"awatchdog/pkg/config/db"
 
 	_ "modernc.org/sqlite" // 注册纯 Go SQLite 驱动(免 cgo,保单二进制分发)
 )

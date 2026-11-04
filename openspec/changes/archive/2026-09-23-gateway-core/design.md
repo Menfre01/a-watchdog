@@ -86,8 +86,8 @@
 
 ### D9 工程与构建
 
-- 目录:`cmd/ds-context`、`pkg/{chain,protocol,config,admin}`、`web/`;模块路径见 Open Questions。
-- Makefile:`generate`(sqlc 代码生成)、`build`(前端构建 → `go build -trimpath`)、`run`、`test`、`lint`(golangci-lint 基线 + gofmt + `sqlc diff` 防生成漂移)、`clean`;产物 `bin/ds-context`。
+- 目录:`cmd/awatchdog`、`pkg/{chain,protocol,config,admin}`、`web/`;模块路径见 Open Questions。
+- Makefile:`generate`(sqlc 代码生成)、`build`(前端构建 → `go build -trimpath`)、`run`、`test`、`lint`(golangci-lint 基线 + gofmt + `sqlc diff` 防生成漂移)、`clean`;产物 `bin/awatchdog`。
 - 依赖(全部有理由):`modernc.org/sqlite`(免 cgo,保单二进制);`github.com/google/go-cmp`(测试断言);构建期工具:前端工具链、`sqlc`(MIT,版本固定,golangci 排除生成代码)。
 - 测试策略（TDD，覆盖率 ≥97%）：表驱动单测 + `httptest` 假上游；流式以「逐块到达、不被整体缓冲」为验证点（短超时读增量断言）；错误透传断言字节一致。
 
@@ -107,5 +107,5 @@
 
 ## Open Questions
 
-- Go module 路径(是否挂远端仓库;未定前以 `ds-context` 为模块名,若后续需要变更则一次性替换 imports)
+- Go module 路径(是否挂远端仓库;未定前以 `awatchdog` 为模块名,若后续需要变更则一次性替换 imports)
 - ~~探测端点差异~~(已闭环:`/v1/models` 路径不可通用——DeepSeek 为 `/models`、`/anthropic` 前缀下各异——故改为最小对话请求 + provider 级「测试模型」字段,不依赖各家列表端点)

@@ -16,7 +16,7 @@
   - 流式硬约束:不缓冲、转发 keep-alive/ping、上游错误原文透传不包裹;`anthropic-*` 头与 body 字段按开放列表原样转发
 - **路由**:请求 `model` 命中模型目录条目 → 路由到该条目的 provider+上游模型;未命中 → 返回明确的未路由错误(不静默转发)。模型目录即路由的最小形态,条件路由后置
 - **请求日志**:每请求一条记录落 SQLite(时间、client key、入向协议、请求模型、实际 provider/model、状态码、延迟、usage、流式标记)
-- **构建体系**:Makefile(generate / build / test / lint / run / clean,含前端构建与 sqlc 代码生成);目录骨架 `cmd/ds-context` + `pkg/{chain,protocol,config,admin}` + `web`
+- **构建体系**:Makefile(generate / build / test / lint / run / clean,含前端构建与 sqlc 代码生成);目录骨架 `cmd/awatchdog` + `pkg/{chain,protocol,config,admin}` + `web`
 - **范围外（后续变更）**：轨迹系统（session 判定 / git 快照 / 压缩分析）为 C2；OpenAI Responses 入向、跨协议 IR 转换为 C3；jev 决策与选择器为 C4
 
 ## Capabilities
@@ -36,7 +36,7 @@
 
 ## Impact
 
-- 全新代码与目录：`cmd/ds-context`、`pkg/{chain,protocol,config,admin}`、`web/`、`Makefile`（首次落地构建入口）
+- 全新代码与目录：`cmd/awatchdog`、`pkg/{chain,protocol,config,admin}`、`web/`、`Makefile`（首次落地构建入口）
 - 新增第三方依赖及理由:
   - `modernc.org/sqlite`:纯 Go、免 cgo,保住静态单二进制分发
   - 构建期工具 `sqlc`(MIT,SQL-first 代码生成):仅构建期、无运行时依赖;数据访问的类型安全由生成代码保证

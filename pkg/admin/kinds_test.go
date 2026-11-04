@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"ds-context/pkg/trace"
+	"awatchdog/pkg/trace"
 )
 
 // TestAdmin_KindsNewEqualsChains 锁定不变量:分类为「首步」的步数等于链总数

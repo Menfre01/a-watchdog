@@ -12,12 +12,12 @@ import (
 	"testing"
 	"time"
 
-	"ds-context/pkg/config"
-	"ds-context/pkg/config/db"
+	"awatchdog/pkg/config"
+	"awatchdog/pkg/config/db"
 )
 
 // testClientKey 是端到端测试用的客户端密钥明文。
-const testClientKey = "dsctx_e2e_test_key"
+const testClientKey = "awd_e2e_test_key"
 
 // discardLogger 返回丢弃输出的 slog。
 func discardLogger() *slog.Logger {
@@ -63,7 +63,7 @@ func newTestStack(t *testing.T, upstreamURL string) (*config.Store, http.Handler
 		t.Fatalf("CreateModel() error = %v", err)
 	}
 	if _, err := store.CreateClientKey(ctxbg, db.CreateClientKeyParams{
-		Name: "cli", KeyHash: config.HashClientKey(testClientKey), KeyPrefix: "dsctx_", Enabled: 1,
+		Name: "cli", KeyHash: config.HashClientKey(testClientKey), KeyPrefix: "awd_", Enabled: 1,
 	}); err != nil {
 		t.Fatalf("CreateClientKey() error = %v", err)
 	}

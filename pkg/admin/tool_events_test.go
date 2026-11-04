@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"ds-context/pkg/config/db"
+	"awatchdog/pkg/config/db"
 )
 
 // TestAdmin_ListToolEvents 覆盖读取接口:成对事件给出时长,缺结束的调用标记未完成。

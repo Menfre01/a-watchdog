@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"ds-context/pkg/trace"
+	"awatchdog/pkg/trace"
 )
 
 // responseOf 读取某请求的上游响应原文,并折成可展示的结构。

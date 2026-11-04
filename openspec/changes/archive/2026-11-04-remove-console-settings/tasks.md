@@ -7,5 +7,5 @@
 
 ## 2. 验证
 
-- [x] 2.1 `pnpm typecheck` 与 `make build` 通过。验证：退出码 0,`bin/ds-context` 生成。
+- [x] 2.1 `pnpm typecheck` 与 `make build` 通过。验证：退出码 0,`bin/awatchdog` 生成。
 - [x] 2.2 重启服务后侧栏只有四项，构建产物不含「全局配置」。验证：页面可见四项,`grep -c "全局配置" pkg/admin/dist/assets/*.js` 为 0。

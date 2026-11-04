@@ -40,13 +40,13 @@
 
 ### 2. 首屏主题在 HTML 内联设好
 
-`web/index.html` 的 `<head>` 内联一段脚本，在样式表之前按 `localStorage.dsctx.theme` 写入 `html[data-theme]`,读不到时用 `matchMedia('(prefers-color-scheme: light)')` 回落。同时写入 `<meta name="theme-color">`。
+`web/index.html` 的 `<head>` 内联一段脚本，在样式表之前按 `localStorage.awatchdog.theme` 写入 `html[data-theme]`,读不到时用 `matchMedia('(prefers-color-scheme: light)')` 回落。同时写入 `<meta name="theme-color">`。
 
 理由：等 Vue 挂载后再设主题会闪一帧。内联脚本体积不到 300 字节。
 
 ### 3. 主题与外壳状态各一个模块
 
-新增 `web/src/theme.ts` 与沿用 `localStorage` 键 `dsctx.theme`、`dsctx.sidebar`。`theme.ts` 导出 `current()`、`set(theme)`、`toggle()`,并负责同步 `data-theme`、`color-scheme` 与 `theme-color`。组件只调用函数，不直接读写键。
+新增 `web/src/theme.ts` 与沿用 `localStorage` 键 `awatchdog.theme`、`awatchdog.sidebar`。`theme.ts` 导出 `current()`、`set(theme)`、`toggle()`,并负责同步 `data-theme`、`color-scheme` 与 `theme-color`。组件只调用函数，不直接读写键。
 
 理由：键名与副作用集中一处，避免各组件各写一份。
 
@@ -93,7 +93,7 @@
 
 ## Migration Plan
 
-无数据迁移。改浏览器本地键(`dsctx.theme`、`dsctx.sidebar`)可随时丢弃。回滚方式为回退前端提交，后端与数据库不受影响。
+无数据迁移。改浏览器本地键(`awatchdog.theme`、`awatchdog.sidebar`)可随时丢弃。回滚方式为回退前端提交，后端与数据库不受影响。
 
 ## Open Questions
 

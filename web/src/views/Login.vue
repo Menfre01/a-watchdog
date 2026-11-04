@@ -24,7 +24,7 @@ async function submit(): Promise<void> {
 <template>
   <div class="center">
     <form class="card login-card" :aria-busy="busy" @submit.prevent="submit">
-      <h1>ds-context 控制台</h1>
+      <h1>AWatchDog 控制台</h1>
       <label class="field">
         管理员口令
         <input

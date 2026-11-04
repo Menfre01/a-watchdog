@@ -1,4 +1,4 @@
-// Command ds-context 是 ds-context 网关与其内嵌控制台的单二进制入口。
+// Command awatchdog 是 AWatchDog 网关与其内嵌控制台的单二进制入口。
 package main
 
 import (
@@ -15,9 +15,9 @@ import (
 	"syscall"
 	"time"
 
-	"ds-context/pkg/admin"
-	"ds-context/pkg/config"
-	"ds-context/pkg/server"
+	"awatchdog/pkg/admin"
+	"awatchdog/pkg/config"
+	"awatchdog/pkg/server"
 )
 
 // shutdownTimeout 是优雅退出时等待在途请求完成的上限。
@@ -25,7 +25,7 @@ const shutdownTimeout = 10 * time.Second
 
 func main() {
 	if err := run(); err != nil {
-		fmt.Fprintln(os.Stderr, "ds-context:", err)
+		fmt.Fprintln(os.Stderr, "awatchdog:", err)
 		os.Exit(1)
 	}
 }
@@ -36,8 +36,8 @@ func run() error {
 	// (或 IPv6 侧)会把请求交给占用者,表现为莫名的 404 而非连接失败。
 	listen := flag.String("listen", "127.0.0.1:8399", "监听地址(默认仅本机;loopback 会同时监听 IPv4 与 IPv6)")
 	dataDir := flag.String("data-dir", defaultDataDir(), "数据目录(SQLite 等)")
-	password := flag.String("admin-password", os.Getenv("DS_CONTEXT_ADMIN_PASSWORD"),
-		"控制台管理员口令(或环境变量 DS_CONTEXT_ADMIN_PASSWORD)")
+	password := flag.String("admin-password", os.Getenv("AWATCHDOG_ADMIN_PASSWORD"),
+		"控制台管理员口令(或环境变量 AWATCHDOG_ADMIN_PASSWORD)")
 	flag.Parse()
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
@@ -45,7 +45,7 @@ func run() error {
 	if err := os.MkdirAll(*dataDir, 0o700); err != nil {
 		return fmt.Errorf("create data dir: %w", err)
 	}
-	store, err := config.Open(filepath.Join(*dataDir, "ds-context.db"))
+	store, err := config.Open(filepath.Join(*dataDir, "awatchdog.db"))
 	if err != nil {
 		return err
 	}
@@ -84,7 +84,7 @@ func run() error {
 	}
 	errCh := make(chan error, len(listeners))
 	for _, ln := range listeners {
-		logger.Info("ds-context 网关已启动", "listen", ln.Addr().String(), "data_dir", *dataDir)
+		logger.Info("AWatchDog 网关已启动", "listen", ln.Addr().String(), "data_dir", *dataDir)
 		go func(l net.Listener) {
 			if serr := srv.Serve(l); serr != nil && !errors.Is(serr, http.ErrServerClosed) {
 				errCh <- serr
@@ -104,17 +104,17 @@ func run() error {
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		return fmt.Errorf("shutdown: %w", err)
 	}
-	logger.Info("ds-context 网关已停止")
+	logger.Info("AWatchDog 网关已停止")
 	return nil
 }
 
-// defaultDataDir 返回默认数据目录(~/.ds-context)。
+// defaultDataDir 返回默认数据目录(~/.awatchdog)。
 func defaultDataDir() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return ".ds-context"
+		return ".awatchdog"
 	}
-	return filepath.Join(home, ".ds-context")
+	return filepath.Join(home, ".awatchdog")
 }
 
 // listenLoopback 在展开出的地址上逐个监听。

@@ -2,7 +2,7 @@
 
 ## 1. 工程骨架与构建
 
-- [x] 1.1 初始化 Go 模块(模块名暂定 `ds-context`)与目录骨架 `cmd/ds-context`、`pkg/{chain,protocol,config,admin}`、`web/`,验证:`go build ./...` 通过
+- [x] 1.1 初始化 Go 模块(模块名暂定 `awatchdog`)与目录骨架 `cmd/awatchdog`、`pkg/{chain,protocol,config,admin}`、`web/`,验证:`go build ./...` 通过
 - [x] 1.2 落地 Makefile(`generate`/`build`/`run`/`test`/`lint`/`clean`,build 串联前端构建),验证:空骨架下 `make build`、`make lint`、`make clean` 可用
 - [x] 1.3 配置 golangci-lint 基线(gosec/errcheck/errname/govet/staticcheck/ineffassign/unused/unconvert/copyloopvar/noctx)与 gofmt 检查,验证:`make lint` 干净通过(工具未安装时给出指引,不调用 go install)
 - [x] 1.4 引入依赖 `modernc.org/sqlite` 与 `github.com/google/go-cmp`(理由已记于 design.md),验证:`go mod tidy` 后 `make build` 通过

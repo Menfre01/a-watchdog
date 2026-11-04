@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"testing"
 
-	"ds-context/pkg/config/db"
-	"ds-context/pkg/trace"
+	"awatchdog/pkg/config/db"
+	"awatchdog/pkg/trace"
 )
 
 // TestHarnessBySeq 覆盖 harness 侧耗时:同链下一步的开始时间减去本步结束时间。

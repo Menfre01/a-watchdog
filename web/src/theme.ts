@@ -2,7 +2,7 @@
 // 组件只调用函数,不直接碰属性。
 export type Theme = 'dark' | 'light'
 
-const STORAGE_KEY = 'dsctx.theme'
+const STORAGE_KEY = 'awatchdog.theme'
 
 // current 读当前生效主题,以 DOM 上的属性为准。
 export function current(): Theme {

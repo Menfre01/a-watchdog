@@ -8,8 +8,8 @@ import (
 	"sort"
 	"strconv"
 
-	"ds-context/pkg/config/db"
-	"ds-context/pkg/trace"
+	"awatchdog/pkg/config/db"
+	"awatchdog/pkg/trace"
 )
 
 // ---- 可观测(轨迹) ----

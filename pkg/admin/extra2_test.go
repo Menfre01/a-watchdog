@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"ds-context/pkg/config/db"
+	"awatchdog/pkg/config/db"
 )
 
 // TestAdmin_StoreErrorBranches 关闭存储后调用各管理端点,覆盖存储错误分支(统一 500)。

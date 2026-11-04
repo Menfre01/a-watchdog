@@ -33,7 +33,7 @@ const loading = ref(true)
 const openTurns = ref<number[]>([])
 const openSteps = ref<number[]>([])
 // 阅读导航:正序/倒序、当前轮次、浮动按钮与迷你地图。
-const orderDesc = ref(localStorage.getItem('dsctx.trace.order') === 'desc')
+const orderDesc = ref(localStorage.getItem('awatchdog.trace.order') === 'desc')
 const currentTurn = ref(0)
 const showQuick = ref(false)
 const jumpValue = ref('')
@@ -58,7 +58,7 @@ function setTurnEl(index: number, el: unknown): void {
 
 function toggleOrder(): void {
   orderDesc.value = !orderDesc.value
-  localStorage.setItem('dsctx.trace.order', orderDesc.value ? 'desc' : 'asc')
+  localStorage.setItem('awatchdog.trace.order', orderDesc.value ? 'desc' : 'asc')
 }
 
 function focusTurn(index: number): void {

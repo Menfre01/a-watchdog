@@ -8,7 +8,7 @@
 
 1. 在侧栏底部点折叠按钮，确认侧栏变成图标态。
 2. 刷新页面。
-3. 打开开发者工具控制台，执行 `localStorage.getItem('dsctx.sidebar')`。
+3. 打开开发者工具控制台，执行 `localStorage.getItem('awatchdog.sidebar')`。
 
 预期:
 
@@ -25,7 +25,7 @@
 1. 点主题切换按钮，记下当前主题。
 2. 在开发者工具把网络限速设为 Slow 3G,CPU 降速 6 倍。
 3. 硬刷新(`Cmd+Shift+R`),观察第一帧。
-4. 执行 `localStorage.getItem('dsctx.theme')`。
+4. 执行 `localStorage.getItem('awatchdog.theme')`。
 
 预期:
 

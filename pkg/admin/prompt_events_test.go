@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"ds-context/pkg/config/db"
+	"awatchdog/pkg/config/db"
 )
 
 // TestAdmin_ListPromptEvents 覆盖提示提交读取接口。

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"ds-context/pkg/chain"
+	"awatchdog/pkg/chain"
 )
 
 // capturedRequest 是假上游捕获的请求快照。
@@ -101,8 +101,8 @@ func TestProxy_OpenAIChatPassthrough(t *testing.T) {
 	if capReq.Headers.Get("X-Custom") != "" {
 		t.Fatalf("X-Custom 不应出站")
 	}
-	if got := capReq.Headers.Get("User-Agent"); got != "ds-context" {
-		t.Fatalf("User-Agent = %q, want ds-context", got)
+	if got := capReq.Headers.Get("User-Agent"); got != "awatchdog" {
+		t.Fatalf("User-Agent = %q, want awatchdog", got)
 	}
 	var sent map[string]any
 	if err := json.Unmarshal(capReq.Body, &sent); err != nil {

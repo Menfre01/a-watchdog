@@ -13,7 +13,7 @@ import (
 
 const (
 	// sessionCookieName 是管理员会话 cookie 名。
-	sessionCookieName = "dsctx_session"
+	sessionCookieName = "awd_session"
 	// csrfHeader 是变更类请求必须携带的自定义头(CSRF 缓解)。
 	csrfHeader = "X-DS-Context-CSRF"
 	// sessionTTL 是会话有效期。

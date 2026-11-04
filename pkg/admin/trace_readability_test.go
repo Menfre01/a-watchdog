@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"testing"
 
-	"ds-context/pkg/config/db"
-	"ds-context/pkg/trace"
+	"awatchdog/pkg/config/db"
+	"awatchdog/pkg/trace"
 )
 
 // TestTurnAxis 覆盖时间轴偏移:轴跨度取本轮全部请求(含旁路步),

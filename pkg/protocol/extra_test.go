@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"ds-context/pkg/chain"
+	"awatchdog/pkg/chain"
 )
 
 func TestAnthropicErrorResponse_AllStatuses(t *testing.T) {

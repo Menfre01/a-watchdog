@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"ds-context/pkg/config/db"
-	"ds-context/pkg/trace"
+	"awatchdog/pkg/config/db"
+	"awatchdog/pkg/trace"
 )
 
 // toolCall 是一条配好对读数的工具调用。

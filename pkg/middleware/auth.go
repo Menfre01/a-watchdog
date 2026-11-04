@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"strings"
 
-	"ds-context/pkg/chain"
-	"ds-context/pkg/config"
-	"ds-context/pkg/protocol"
+	"awatchdog/pkg/chain"
+	"awatchdog/pkg/config"
+	"awatchdog/pkg/protocol"
 )
 
 // Auth 是准入阶段的鉴权环节:校验客户端凭据并写入身份。

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"ds-context/pkg/config/db"
+	"awatchdog/pkg/config/db"
 )
 
 func TestHashClientKey_StableAndDistinct(t *testing.T) {

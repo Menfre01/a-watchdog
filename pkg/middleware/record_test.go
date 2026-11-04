@@ -13,10 +13,10 @@ import (
 	"testing"
 	"time"
 
-	"ds-context/pkg/chain"
-	"ds-context/pkg/config"
-	"ds-context/pkg/config/db"
-	"ds-context/pkg/trace"
+	"awatchdog/pkg/chain"
+	"awatchdog/pkg/config"
+	"awatchdog/pkg/config/db"
+	"awatchdog/pkg/trace"
 )
 
 // fakeStore 是可控的 InsertStore 假实现。

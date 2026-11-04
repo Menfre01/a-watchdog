@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"ds-context/pkg/config/db"
-	"ds-context/pkg/trace"
+	"awatchdog/pkg/config/db"
+	"awatchdog/pkg/trace"
 )
 
 // upstreamOK 是返回固定成功响应的假上游。

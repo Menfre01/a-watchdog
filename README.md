@@ -1,4 +1,4 @@
-# ds-context
+# AWatchDog
 
 个人 / 小团队自托管的 LLM 网关:单二进制,内嵌控制台,配置与接入分离。
 
@@ -15,7 +15,7 @@
 
 ```bash
 make generate   # 从 SQL 生成数据访问代码(已入库;改动 SQL 后重新生成)
-make build      # 构建前端 → 编译单二进制到 bin/ds-context
+make build      # 构建前端 → 编译单二进制到 bin/awatchdog
 make test       # 全部测试
 make lint       # gofmt + golangci-lint + sqlc diff(防生成漂移)
 ```
@@ -23,17 +23,17 @@ make lint       # gofmt + golangci-lint + sqlc diff(防生成漂移)
 ## 运行
 
 ```bash
-./bin/ds-context \
+./bin/awatchdog \
   --listen 127.0.0.1:8399 \
-  --data-dir ~/.ds-context \
+  --data-dir ~/.awatchdog \
   --admin-password '你的口令'
 ```
 
 | 参数 | 默认 | 说明 |
 |---|---|---|
 | `--listen` | `127.0.0.1:8399` | 监听地址(默认仅本机;loopback 同时监听 IPv4 与 IPv6) |
-| `--data-dir` | `~/.ds-context` | 数据目录(SQLite 数据文件) |
-| `--admin-password` | 环境变量 `DS_CONTEXT_ADMIN_PASSWORD` | 控制台管理员口令;未设置则控制台登录不可用 |
+| `--data-dir` | `~/.awatchdog` | 数据目录(SQLite 数据文件) |
+| `--admin-password` | 环境变量 `AWATCHDOG_ADMIN_PASSWORD` | 控制台管理员口令;未设置则控制台登录不可用 |
 
 ## 快速上手
 
@@ -45,7 +45,7 @@ make lint       # gofmt + golangci-lint + sqlc diff(防生成漂移)
 
    ```bash
    export ANTHROPIC_BASE_URL=http://127.0.0.1:8399
-   export ANTHROPIC_AUTH_TOKEN=dsctx_xxxxxxxx    # 控制台生成的 key
+   export ANTHROPIC_AUTH_TOKEN=awd_xxxxxxxx    # 控制台生成的 key
    claude
    ```
 
@@ -57,7 +57,7 @@ make lint       # gofmt + golangci-lint + sqlc diff(防生成漂移)
 ## 目录结构
 
 ```
-cmd/ds-context/    单二进制入口(网关 + 控制台装配)
+cmd/awatchdog/    单二进制入口(网关 + 控制台装配)
 pkg/chain/         责任链框架(固定阶段序、强类型上下文、短路)
 pkg/protocol/      协议适配(解析/构造/流式转发/错误形状)与上游 Proxy
 pkg/middleware/    链上环节:auth(鉴权)/ route(路由)/ record(请求记录)

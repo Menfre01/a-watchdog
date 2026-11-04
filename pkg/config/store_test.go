@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"ds-context/pkg/config/db"
+	"awatchdog/pkg/config/db"
 )
 
 // newTestStore 在临时目录打开测试用 Store。
@@ -125,7 +125,7 @@ func TestStore_ClientKeys(t *testing.T) {
 	ctx := context.Background()
 
 	k, err := s.CreateClientKey(ctx, db.CreateClientKeyParams{
-		Name: "claude-code", KeyHash: "sha256:aaa", KeyPrefix: "dsctx_aaa", Enabled: 1,
+		Name: "claude-code", KeyHash: "sha256:aaa", KeyPrefix: "awd_aaa", Enabled: 1,
 	})
 	if err != nil {
 		t.Fatalf("CreateClientKey() error = %v", err)

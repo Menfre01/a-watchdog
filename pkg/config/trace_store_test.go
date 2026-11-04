@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"ds-context/pkg/config/db"
+	"awatchdog/pkg/config/db"
 )
 
 // openTraceStore 打开一个临时库并注册清理。

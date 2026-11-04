@@ -43,7 +43,7 @@ function toggleTheme(): void {
   <div class="shell" :class="{ collapsed: railCollapsed }">
     <aside class="rail">
       <div class="rail-head">
-        <span class="brand" :class="{ hidden: railCollapsed }">ds-context</span>
+        <span class="brand" :class="{ hidden: railCollapsed }">AWatchDog</span>
         <button
           type="button"
           class="icon-btn"

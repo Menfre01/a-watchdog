@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"ds-context/pkg/chain"
+	"awatchdog/pkg/chain"
 )
 
 // 上游连接与首字节超时的默认值;流式响应整体耗时不设上限。

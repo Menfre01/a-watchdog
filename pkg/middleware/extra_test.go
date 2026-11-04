@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"ds-context/pkg/chain"
+	"awatchdog/pkg/chain"
 )
 
 func TestMiddlewareIdentity(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 )
 
 // userAgent 是发往上游请求的固定 UA(部分上游按 UA 区分流量策略)。
-const userAgent = "ds-context"
+const userAgent = "awatchdog"
 
 // decodeObject 把 JSON 请求体解析为保留未知字段与数字精度的对象
 // (使用 json.Number 防大整数精度损失,见 design.md D1)。

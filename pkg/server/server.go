@@ -10,9 +10,9 @@ import (
 	"net/http"
 	"time"
 
-	"ds-context/pkg/chain"
-	"ds-context/pkg/config"
-	"ds-context/pkg/protocol"
+	"awatchdog/pkg/chain"
+	"awatchdog/pkg/config"
+	"awatchdog/pkg/protocol"
 )
 
 // maxBodyBytes 是入向请求体的体积上限(长上下文对话可达数 MB)。

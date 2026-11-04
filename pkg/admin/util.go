@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"ds-context/pkg/config"
-	"ds-context/pkg/config/db"
+	"awatchdog/pkg/config"
+	"awatchdog/pkg/config/db"
 )
 
 // maxAdminBody 是管理 API 请求体的体积上限。

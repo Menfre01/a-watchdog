@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"ds-context/pkg/chain"
-	"ds-context/pkg/config"
-	"ds-context/pkg/config/db"
+	"awatchdog/pkg/chain"
+	"awatchdog/pkg/config"
+	"awatchdog/pkg/config/db"
 )
 
 // setupCatalog 建一个 provider 与其模型条目,返回两者的 id。

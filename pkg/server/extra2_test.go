@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"ds-context/pkg/chain"
+	"awatchdog/pkg/chain"
 )
 
 func TestEndpoint_RejectAfterResponseStarted(t *testing.T) {
