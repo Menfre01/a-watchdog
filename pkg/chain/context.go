@@ -47,6 +47,10 @@ type Context struct {
 	Body []byte
 	// ResponseStarted 标记响应已开始写出;此后出错只能记日志,不能再写错误响应。
 	ResponseStarted bool
+	// ResponseBody 是上游响应原文的旁路副本(有上限);未记录时为空。
+	ResponseBody []byte
+	// ResponseTruncated 标记响应副本超限被截断。
+	ResponseTruncated bool
 
 	// 阶段产物:按阶段写入、后续环节只读。
 	ClientKey *ClientIdentity

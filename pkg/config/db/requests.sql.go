@@ -9,6 +9,38 @@ import (
 	"context"
 )
 
+const aggregateRequestsSince = `-- name: AggregateRequestsSince :one
+SELECT
+    COUNT(*) AS count,
+    CAST(COALESCE(SUM(CASE WHEN status_code >= 400 OR error_kind <> '' THEN 1 ELSE 0 END), 0) AS INTEGER) AS errors,
+    CAST(COALESCE(SUM(usage_in), 0) AS INTEGER) AS usage_in,
+    CAST(COALESCE(SUM(usage_out), 0) AS INTEGER) AS usage_out,
+    CAST(COALESCE(SUM(usage_cache), 0) AS INTEGER) AS usage_cache
+FROM requests
+WHERE ts >= ?
+`
+
+type AggregateRequestsSinceRow struct {
+	Count      int64
+	Errors     int64
+	UsageIn    int64
+	UsageOut   int64
+	UsageCache int64
+}
+
+func (q *Queries) AggregateRequestsSince(ctx context.Context, ts string) (AggregateRequestsSinceRow, error) {
+	row := q.db.QueryRowContext(ctx, aggregateRequestsSince, ts)
+	var i AggregateRequestsSinceRow
+	err := row.Scan(
+		&i.Count,
+		&i.Errors,
+		&i.UsageIn,
+		&i.UsageOut,
+		&i.UsageCache,
+	)
+	return i, err
+}
+
 const countRequests = `-- name: CountRequests :one
 SELECT COUNT(*) FROM requests
 `
@@ -148,6 +180,33 @@ func (q *Queries) ListRecentRequests(ctx context.Context, limit int64) ([]Reques
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRequestLatenciesSince = `-- name: ListRequestLatenciesSince :many
+SELECT latency_ms FROM requests WHERE ts >= ? ORDER BY latency_ms
+`
+
+func (q *Queries) ListRequestLatenciesSince(ctx context.Context, ts string) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listRequestLatenciesSince, ts)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var latency_ms int64
+		if err := rows.Scan(&latency_ms); err != nil {
+			return nil, err
+		}
+		items = append(items, latency_ms)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err

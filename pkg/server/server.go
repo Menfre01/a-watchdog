@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"ds-context/pkg/chain"
+	"ds-context/pkg/config"
 	"ds-context/pkg/protocol"
 )
 
@@ -22,6 +23,7 @@ type Server struct {
 	handler chain.Handler
 	logger  *slog.Logger
 	console http.Handler
+	tools   *toolEvents
 	// maxBody 是入向请求体的体积上限;New 使用 maxBodyBytes,测试可覆盖以走限流分支。
 	maxBody int64
 }
@@ -29,6 +31,12 @@ type Server struct {
 // New 创建入口:chainHandler 是装配完成的整条责任链(终结点为上游调用)。
 func New(chainHandler chain.Handler, logger *slog.Logger) *Server {
 	return &Server{handler: chainHandler, logger: logger, maxBody: maxBodyBytes}
+}
+
+// WithToolEvents 挂载工具事件上报端点(路径 /v1/tool-events);未挂载时该路径返回 404。
+func (s *Server) WithToolEvents(store *config.Store) *Server {
+	s.tools = &toolEvents{store: store, snapshot: store.Snapshot}
+	return s
 }
 
 // WithConsole 挂载控制台(路径 /console);未挂载时该路径返回 404。
@@ -44,6 +52,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/chat/completions", s.endpoint("openai-chat"))
 	mux.HandleFunc("POST /v1/messages/count_tokens", s.endpoint("anthropic-messages"))
 	mux.HandleFunc("POST /v1/messages", s.endpoint("anthropic-messages"))
+	if s.tools != nil {
+		mux.Handle("POST /v1/tool-events", s.tools)
+		mux.HandleFunc("POST /v1/prompt-events", s.tools.handlePrompt)
+	}
 	if s.console != nil {
 		mux.Handle("/console/", s.console)
 		mux.Handle("/console", s.console)

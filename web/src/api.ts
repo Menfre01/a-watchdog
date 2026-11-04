@@ -27,11 +27,6 @@ export interface ClientKey {
   key?: string
 }
 
-export interface Setting {
-  key: string
-  value: string
-}
-
 export interface ProbeResult {
   ok: boolean
   detail: string
@@ -44,6 +39,8 @@ export interface TraceSession {
   session_id: string
   session_source: string
   session_note: string
+  // agent 是会话的客户端分类:claude-code / codex / dsh / other。
+  agent: string
   first_seen: string
   last_seen: string
   steps: number
@@ -68,6 +65,8 @@ export interface TraceDelta {
 }
 
 export interface TraceStep {
+  // tool_ms 是该步发起工具的事件边界耗时之和(含客户端处理)。
+  tool_ms?: number
   seq: number
   ts: string
   model: string
@@ -153,6 +152,13 @@ export interface TraceTurn {
   steps: TraceStep[]
 }
 
+export interface TraceUsageSplit {
+  steps: number
+  usage_in: number
+  usage_out: number
+  usage_cache: number
+}
+
 export interface TraceSkeleton {
   session_id: string
   session_source: string
@@ -163,6 +169,8 @@ export interface TraceSkeleton {
   usage_in: number
   usage_out: number
   usage_cache: number
+  main?: TraceUsageSplit
+  side?: TraceUsageSplit
   turns: TraceTurn[]
   kinds?: TraceKinds
   chains?: TraceChains
@@ -192,7 +200,34 @@ export interface TraceMessage {
   blocks: Record<string, unknown>[]
 }
 
+export interface TracePromptEvent {
+  session_id: string
+  turn_id: string
+  prompt_id: string
+  prompt_len: number
+  ts: string
+}
+
+export interface TraceToolCallDuration {
+  tool_call_id: string
+  // input/result 是客户端上报值;缺失时由轨迹复原值兜底。
+  input?: unknown
+  result?: unknown
+  input_truncated?: boolean
+  result_truncated?: boolean
+  tool_name: string
+  started_at: string
+  finished_at?: string
+  duration_ms?: number
+  status?: string
+  boundary: string
+  approval_wait: boolean
+  complete: boolean
+}
+
 export interface TraceToolCall {
+  // tool_call_id 用于与工具事件配对,取得该次调用的实测耗时。
+  tool_call_id?: string
   name: string
   status: string
   input: unknown
@@ -249,6 +284,28 @@ export interface TraceDiffContext {
   message?: TraceMessage
 }
 
+export interface TraceResponseBlock {
+  type: string
+  text?: string
+  thinking?: string
+  name?: string
+  input?: unknown
+}
+
+export interface TraceStepResponse {
+  recorded: boolean
+  blocks?: TraceResponseBlock[]
+  truncated?: boolean
+  complete?: boolean
+  text?: string
+  thinking?: string
+  tool_uses?: string[]
+  stop_reason?: string
+  usage_in?: number
+  usage_out?: number
+  usage_cache?: number
+}
+
 export interface TraceStepDetail {
   seq: number
   ts: string
@@ -256,6 +313,7 @@ export interface TraceStepDetail {
   inherited: number
   messages: TraceMessage[]
   tools: TraceToolCall[]
+  response?: TraceStepResponse
   compress?: TraceCompress
   diff?: TraceDiffHunk[]
   diff_lines?: number
@@ -286,4 +344,17 @@ export const api = {
   post: <T>(path: string, body?: unknown) => request<T>('POST', path, body),
   put: <T>(path: string, body?: unknown) => request<T>('PUT', path, body),
   del: (path: string) => request<void>('DELETE', path),
+}
+
+export interface RequestMetrics {
+  count: number
+  errors: number
+  error_rate: number
+  p50_ms: number
+  p95_ms: number
+  p99_ms: number
+  usage_in: number
+  usage_out: number
+  usage_cache: number
+  cache_rate: number
 }

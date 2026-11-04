@@ -39,6 +39,7 @@ func TestAdmin_StoreErrorBranches(t *testing.T) {
 		{http.MethodDelete, "/console/api/models/1", "", http.StatusInternalServerError},
 		{http.MethodPost, "/console/api/client-keys", `{"name":"cli"}`, http.StatusInternalServerError},
 		{http.MethodPut, "/console/api/client-keys/1", `{"enabled":false}`, http.StatusInternalServerError},
+		{http.MethodDelete, "/console/api/client-keys/1", "", http.StatusInternalServerError},
 		{http.MethodPut, "/console/api/settings/k", `{"value":"v"}`, http.StatusInternalServerError},
 	}
 	for _, c := range cases {

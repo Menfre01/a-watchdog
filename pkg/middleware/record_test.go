@@ -32,6 +32,7 @@ type fakeStore struct {
 	got       []db.InsertRequestParams
 	traces    []db.InsertRequestBodyParams
 	snaps     []*config.TraceSnapshot
+	responses []db.InsertResponseBodyParams
 	seqs      map[string]int64
 	nextID    int64
 }
@@ -78,6 +79,14 @@ func (f *fakeStore) SaveTrace(_ context.Context, body db.InsertRequestBodyParams
 	defer f.mu.Unlock()
 	f.traces = append(f.traces, body)
 	f.snaps = append(f.snaps, snap)
+	return nil
+}
+
+// InsertResponseBody 实现 InsertStore:记录响应原文,供断言使用。
+func (f *fakeStore) InsertResponseBody(_ context.Context, arg db.InsertResponseBodyParams) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.responses = append(f.responses, arg)
 	return nil
 }
 

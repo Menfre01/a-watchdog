@@ -264,6 +264,97 @@ func (s *Store) SetClientKeyEnabled(ctx context.Context, id int64, enabled bool)
 	return s.Refresh(ctx)
 }
 
+// DeleteClientKey 删除客户端密钥,成功后刷新快照(被删密钥即时失效)。
+func (s *Store) DeleteClientKey(ctx context.Context, id int64) error {
+	res, err := s.q.DeleteClientKey(ctx, id)
+	if err != nil {
+		return fmt.Errorf("config: delete client_key: %w", err)
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("config: delete client_key rows: %w", err)
+	}
+	if rows == 0 {
+		return ErrNotFound
+	}
+	return s.Refresh(ctx)
+}
+
+// InsertResponseBody 写入上游响应原文(gzip)。
+func (s *Store) InsertResponseBody(ctx context.Context, arg db.InsertResponseBodyParams) error {
+	if err := s.q.InsertResponseBody(ctx, arg); err != nil {
+		return fmt.Errorf("config: insert response body: %w", err)
+	}
+	return nil
+}
+
+// ResponseBody 读取某请求的响应原文;无记录时返回错误。
+func (s *Store) ResponseBody(ctx context.Context, requestID int64) (db.ResponseBody, error) {
+	row, err := s.q.GetResponseBody(ctx, requestID)
+	if err != nil {
+		return db.ResponseBody{}, fmt.Errorf("config: get response body: %w", err)
+	}
+	return row, nil
+}
+
+// ---- request metrics ----
+
+// AggregateRequestsSince 汇总某时刻之后的请求数、错误数与用量。
+func (s *Store) AggregateRequestsSince(ctx context.Context, since string) (db.AggregateRequestsSinceRow, error) {
+	row, err := s.q.AggregateRequestsSince(ctx, since)
+	if err != nil {
+		return db.AggregateRequestsSinceRow{}, fmt.Errorf("config: aggregate requests: %w", err)
+	}
+	return row, nil
+}
+
+// ListRequestLatenciesSince 返回某时刻之后的全部延迟,升序,供分位数计算。
+func (s *Store) ListRequestLatenciesSince(ctx context.Context, since string) ([]int64, error) {
+	rows, err := s.q.ListRequestLatenciesSince(ctx, since)
+	if err != nil {
+		return nil, fmt.Errorf("config: list request latencies: %w", err)
+	}
+	return rows, nil
+}
+
+// ---- tool events ----
+
+// InsertToolEvent 写入一条工具事件;(client, tool_call_id, phase) 重复时忽略。
+func (s *Store) InsertToolEvent(ctx context.Context, p db.InsertToolEventParams) error {
+	if err := s.q.InsertToolEvent(ctx, p); err != nil {
+		return fmt.Errorf("config: insert tool_event: %w", err)
+	}
+	return nil
+}
+
+// ListToolEvents 返回某会话的全部工具事件,按时间与自增序排列。
+func (s *Store) ListToolEvents(ctx context.Context, sessionID string) ([]db.ToolEvent, error) {
+	rows, err := s.q.ListToolEvents(ctx, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("config: list tool_events: %w", err)
+	}
+	return rows, nil
+}
+
+// ---- prompt events ----
+
+// InsertPromptEvent 写入一条提示提交事件;有 prompt_id 时重复上报被忽略。
+func (s *Store) InsertPromptEvent(ctx context.Context, p db.InsertPromptEventParams) error {
+	if err := s.q.InsertPromptEvent(ctx, p); err != nil {
+		return fmt.Errorf("config: insert prompt_event: %w", err)
+	}
+	return nil
+}
+
+// ListPromptEvents 返回某会话的提交事件,按时间升序。
+func (s *Store) ListPromptEvents(ctx context.Context, sessionID string) ([]db.PromptEvent, error) {
+	rows, err := s.q.ListPromptEvents(ctx, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("config: list prompt_events: %w", err)
+	}
+	return rows, nil
+}
+
 // ---- settings ----
 
 // ListSettings 返回全部全局配置项。
@@ -453,10 +544,11 @@ type SessionSummary struct {
 	UsageCache    int64
 }
 
-// ListSessionSummaries 返回会话列表:prefix 为 session_id 前缀、from/to 为时间范围,
-// 三者留空表示不过滤;过滤语义为「会话内有任一步落在时间范围内即入选」。
-func (s *Store) ListSessionSummaries(ctx context.Context, prefix, from, to string, rowLimit int64) ([]SessionSummary, error) {
+// ListSessionSummaries 返回会话列表:keyID 过滤密钥维度,prefix 匹配客户端原始标识前缀,
+// from/to 为时间范围;留空表示不过滤。过滤语义为「会话内有任一步落在时间范围内即入选」。
+func (s *Store) ListSessionSummaries(ctx context.Context, keyID, prefix, from, to string, rowLimit int64) ([]SessionSummary, error) {
 	rows, err := s.q.ListSessionSummaries(ctx, db.ListSessionSummariesParams{
+		KeyID:    nullableString(keyID),
 		Prefix:   nullableString(prefix),
 		FromTs:   nullableString(from),
 		ToTs:     nullableString(to),

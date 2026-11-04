@@ -303,6 +303,20 @@ func (a *Admin) handleUpdateClientKey(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// handleDeleteClientKey 删除客户端密钥(被删密钥即时失效,不可恢复)。
+func (a *Admin) handleDeleteClientKey(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r)
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := a.store.DeleteClientKey(r.Context(), id); err != nil {
+		a.storeErr(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // ---- settings ----
 
 // handleListSettings 返回全部全局配置项。

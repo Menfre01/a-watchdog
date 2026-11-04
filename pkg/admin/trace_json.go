@@ -17,11 +17,23 @@ const turnTitleMaxRunes = 80
 func (an *sessionAnalysis) skeletonJSON() map[string]any {
 	indexOf := make(map[int64]int, len(an.steps))
 	var usageIn, usageOut, usageCache int64
+	// 主路与旁路各自累加:总计含旁路,拆分让读者不必自己相减。
+	main := map[string]int64{"steps": 0, "in": 0, "out": 0, "cache": 0}
+	side := map[string]int64{"steps": 0, "in": 0, "out": 0, "cache": 0}
 	for i, step := range an.steps {
 		indexOf[step.Seq] = i
-		usageIn += derefInt(step.UsageIn)
-		usageOut += derefInt(step.UsageOut)
-		usageCache += derefInt(step.UsageCache)
+		in, out, cache := derefInt(step.UsageIn), derefInt(step.UsageOut), derefInt(step.UsageCache)
+		usageIn += in
+		usageOut += out
+		usageCache += cache
+		bucket := main
+		if an.sideSteps[step.Seq] {
+			bucket = side
+		}
+		bucket["steps"]++
+		bucket["in"] += in
+		bucket["out"] += out
+		bucket["cache"] += cache
 	}
 
 	turns := make([]map[string]any, 0, len(an.turns))
@@ -104,6 +116,8 @@ func (an *sessionAnalysis) skeletonJSON() map[string]any {
 		"usage_in":       usageIn,
 		"usage_out":      usageOut,
 		"usage_cache":    usageCache,
+		"main":           usageSplitJSON(main),
+		"side":           usageSplitJSON(side),
 		"turns":          turns,
 		"kinds":          an.kindDistribution(),
 		"chains":         an.chainSummary(),
@@ -866,7 +880,8 @@ func (an *sessionAnalysis) toolsOfSeq(seq int64) []map[string]any {
 			continue
 		}
 		out = append(out, map[string]any{
-			"name": call.Name, "status": string(call.Status),
+			"tool_call_id": call.ID,
+			"name":         call.Name, "status": string(call.Status),
 			"input": call.Input, "result": call.Result,
 			"issued_seq": call.IssuedSeq, "result_seq": call.ResultSeq,
 		})
@@ -964,4 +979,14 @@ func truncateRunes(s string, max int) string {
 		return s
 	}
 	return string(runes[:max]) + "…"
+}
+
+// usageSplitJSON 把一组累加值转成骨架里的拆分对象。
+func usageSplitJSON(m map[string]int64) map[string]any {
+	return map[string]any{
+		"steps":       m["steps"],
+		"usage_in":    m["in"],
+		"usage_out":   m["out"],
+		"usage_cache": m["cache"],
+	}
 }

@@ -158,7 +158,7 @@ func TestStore_SaveTraceWithoutSnapshot(t *testing.T) {
 		t.Fatalf("事实层应为空, got err = %v", err)
 	}
 	// 快照缺失的请求不归入任何会话。
-	summaries, err := s.ListSessionSummaries(ctx, "", "", "", 10)
+	summaries, err := s.ListSessionSummaries(ctx, "", "", "", "", 10)
 	if err != nil || len(summaries) != 0 {
 		t.Fatalf("会话列表 = %v, %v; want 空", summaries, err)
 	}
@@ -173,7 +173,7 @@ func TestStore_SaveTraceMissingRequestFails(t *testing.T) {
 	if err := s.SaveTrace(ctx, body, snap); err == nil {
 		t.Fatal("SaveTrace() error = nil, want 外键约束失败")
 	}
-	summaries, err := s.ListSessionSummaries(ctx, "", "", "", 10)
+	summaries, err := s.ListSessionSummaries(ctx, "", "", "", "", 10)
 	if err != nil || len(summaries) != 0 {
 		t.Fatalf("失败后不应留下轨迹: %v, %v", summaries, err)
 	}

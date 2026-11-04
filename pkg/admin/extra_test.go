@@ -152,6 +152,7 @@ func TestAdmin_ValidationAndErrors(t *testing.T) {
 		{http.MethodPut, "/console/api/models/abc", `{"name":"n","provider_id":1,"upstream_model":"u","enabled":true}`},
 		{http.MethodDelete, "/console/api/models/0", ""},
 		{http.MethodPut, "/console/api/client-keys/abc", `{"enabled":true}`},
+		{http.MethodDelete, "/console/api/client-keys/abc", ""},
 	}
 	for _, c := range badID {
 		resp := do(t, srv.Client(), c.method, srv.URL+c.path, c.body, cookie, true)

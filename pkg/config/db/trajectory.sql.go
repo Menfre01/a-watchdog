@@ -223,15 +223,20 @@ SELECT
     CAST(COALESCE(SUM(r.usage_cache), 0) AS INTEGER) AS usage_cache
 FROM snapshots s
 JOIN requests r ON r.id = s.request_id
-WHERE (?1 IS NULL OR s.session_id LIKE ?1 || '%')
-  AND (?2 IS NULL OR s.ts >= ?2)
-  AND (?3 IS NULL OR s.ts <= ?3)
+WHERE (?1 IS NULL OR s.session_id LIKE ?1 || ':%')
+  AND (
+    ?2 IS NULL
+    OR substr(s.session_id, instr(s.session_id, ':') + 1) LIKE ?2 || '%'
+  )
+  AND (?3 IS NULL OR s.ts >= ?3)
+  AND (?4 IS NULL OR s.ts <= ?4)
 GROUP BY s.session_id
 ORDER BY last_seen DESC
-LIMIT ?4
+LIMIT ?5
 `
 
 type ListSessionSummariesParams struct {
+	KeyID    interface{}
 	Prefix   interface{}
 	FromTs   interface{}
 	ToTs     interface{}
@@ -254,8 +259,11 @@ type ListSessionSummariesRow struct {
 // (attribution lives in snapshots, so both are identical). Time filters select
 // sessions having any step inside the range. session_source and session_note are
 // representative values within a session; exact reasons live in the detail view.
+// prefix matches the client identifier (the part after the colon), so search
+// follows what the UI shows.
 func (q *Queries) ListSessionSummaries(ctx context.Context, arg ListSessionSummariesParams) ([]ListSessionSummariesRow, error) {
 	rows, err := q.db.QueryContext(ctx, listSessionSummaries,
+		arg.KeyID,
 		arg.Prefix,
 		arg.FromTs,
 		arg.ToTs,

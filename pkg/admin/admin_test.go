@@ -287,6 +287,28 @@ func TestAdmin_ModelsKeysSettings(t *testing.T) {
 		t.Fatalf("停用未即时生效")
 	}
 
+	// 删除:快照即时移除,列表清空;再删返回 404。
+	resp = do(t, srv.Client(), http.MethodDelete,
+		srv.URL+"/console/api/client-keys/"+strconv.FormatInt(createdKey.ID, 10), "", cookie, true)
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("delete key = %d", resp.StatusCode)
+	}
+	_ = resp.Body.Close()
+	if _, ok := store.Snapshot().LookupKey(config.HashClientKey(createdKey.Key)); ok {
+		t.Fatalf("删除未即时生效")
+	}
+	resp = do(t, srv.Client(), http.MethodGet, srv.URL+"/console/api/client-keys", "", cookie, false)
+	decode(t, resp, &keys)
+	if len(keys) != 0 {
+		t.Fatalf("删除后列表 = %v", keys)
+	}
+	resp = do(t, srv.Client(), http.MethodDelete,
+		srv.URL+"/console/api/client-keys/"+strconv.FormatInt(createdKey.ID, 10), "", cookie, true)
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("重复删除 = %d", resp.StatusCode)
+	}
+	_ = resp.Body.Close()
+
 	// settings 写入 + 列表。
 	resp = do(t, srv.Client(), http.MethodPut, srv.URL+"/console/api/settings/upstream_timeout_ms",
 		`{"value":"3000"}`, cookie, true)

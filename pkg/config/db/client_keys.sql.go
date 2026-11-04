@@ -31,6 +31,14 @@ func (q *Queries) CreateClientKey(ctx context.Context, arg CreateClientKeyParams
 	)
 }
 
+const deleteClientKey = `-- name: DeleteClientKey :execresult
+DELETE FROM client_keys WHERE id = ?
+`
+
+func (q *Queries) DeleteClientKey(ctx context.Context, id int64) (sql.Result, error) {
+	return q.db.ExecContext(ctx, deleteClientKey, id)
+}
+
 const getClientKeyByHash = `-- name: GetClientKeyByHash :one
 SELECT id, name, key_hash, key_prefix, enabled, created_at FROM client_keys WHERE key_hash = ?
 `

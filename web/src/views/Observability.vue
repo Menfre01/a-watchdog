@@ -1,25 +1,44 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { api, type TraceSession } from '../api'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { api, type ClientKey, type TraceSession } from '../api'
+import AppIcon from '../components/AppIcon.vue'
 import { formatDateTime, formatSpan } from '../format'
+import { buildHash, listHash, parseHash, replaceHash, subscribe, type ObservabilityRoute, type Panel } from '../route'
+import { splitSessionID } from '../session'
+import MetricsIsland from './MetricsIsland.vue'
 import TracePanel from './TracePanel.vue'
 import ToolsPanel from './ToolsPanel.vue'
 
 const sessions = ref<TraceSession[]>([])
+const keys = ref<ClientKey[]>([])
 const loading = ref(true)
 const error = ref('')
 const query = ref('')
-const selected = ref<TraceSession | null>(null)
-const panel = ref<'trace' | 'tools'>('trace')
+const keyFilter = ref('')
+const notFound = ref(false)
 
-// load 拉会话列表。列表按 spec 不含轮次数:推断轮次的成本随会话数线性放大。
-async function load() {
+// route 是唯一导航状态:selected 与 panel 都由它派生,组件不再自己记。
+const route = ref<ObservabilityRoute | null>(parseHash(location.hash))
+const session = ref<TraceSession | null>(null)
+const selectedID = computed(() => route.value?.sessionID ?? null)
+const panel = computed<Panel>(() => route.value?.panel ?? 'trace')
+
+// 列表保活需要的两个锚点:进入前的滚动位置与触发行。
+let listScroll = 0
+let lastFocusID = ''
+let unsubscribe: (() => void) | null = null
+const detailTitle = ref<HTMLElement | null>(null)
+
+async function load(): Promise<void> {
   loading.value = true
   error.value = ''
   try {
+    const params = new URLSearchParams()
     const q = query.value.trim()
-    const path = q ? `/console/api/traces?q=${encodeURIComponent(q)}` : '/console/api/traces'
-    sessions.value = await api.get<TraceSession[]>(path)
+    if (q) params.set('q', q)
+    if (keyFilter.value) params.set('key_id', keyFilter.value)
+    const suffix = params.toString()
+    sessions.value = await api.get<TraceSession[]>(suffix ? `/console/api/traces?${suffix}` : '/console/api/traces')
   } catch (e) {
     error.value = e instanceof Error ? e.message : String(e)
   } finally {
@@ -27,10 +46,75 @@ async function load() {
   }
 }
 
-function sourceLabel(source: string): string {
-  if (source === 'explicit') return '显式标识'
-  if (source === 'anon') return '匿名'
-  return source
+// resolveSession 为当前地址找会话摘要:先查已加载的列表,再按标识前缀回查一次。
+async function resolveSession(id: string): Promise<void> {
+  notFound.value = false
+  session.value = sessions.value.find((s) => s.session_id === id) ?? null
+  if (session.value) return
+  try {
+    const raw = splitSessionID(id).raw
+    const rows = await api.get<TraceSession[]>(`/console/api/traces?q=${encodeURIComponent(raw)}`)
+    session.value = rows.find((s) => s.session_id === id) ?? null
+  } catch {
+    session.value = null
+  }
+  notFound.value = session.value === null
+}
+
+function focusRow(id: string): void {
+  if (!id) return
+  const target = [...document.querySelectorAll<HTMLAnchorElement>('a[data-session]')].find(
+    (a) => a.dataset.session === id,
+  )
+  target?.focus()
+  target?.scrollIntoView({ block: 'nearest' })
+}
+
+// rememberList 记录进入详情前的锚点;整行点击与链接点击都会经过这里。
+function rememberList(id: string): void {
+  listScroll = window.scrollY
+  lastFocusID = id
+}
+
+function openSession(s: TraceSession): void {
+  rememberList(s.session_id)
+  location.hash = buildHash(s.session_id, 'trace')
+}
+
+function setPanel(next: Panel): void {
+  if (!selectedID.value || panel.value === next) return
+  replaceHash(buildHash(selectedID.value, next))
+  route.value = parseHash(location.hash)
+}
+
+// agentClass 给四类 agent 各配一个标签色相;Other 用中性色。
+function agentClass(agent: string): string {
+  if (agent === 'claude-code') return 'agent-claude'
+  if (agent === 'codex') return 'agent-codex'
+  if (agent === 'dsh') return 'agent-dsh'
+  return ''
+}
+
+function agentLabel(agent: string): string {
+  if (agent === 'claude-code') return 'Claude Code'
+  if (agent === 'codex') return 'Codex'
+  if (agent === 'dsh') return 'DSH'
+  return 'Other'
+}
+
+// shortID 取原始标识前 8 位:列表只做扫描,核对留给详情。
+function shortID(id: string): string {
+  const { raw } = splitSessionID(id)
+  return raw.length > 8 ? raw.slice(0, 8) + '…' : raw
+}
+
+function rawID(id: string): string {
+  return splitSessionID(id).raw
+}
+
+function keyName(id: string): string {
+  const { keyID } = splitSessionID(id)
+  return keys.value.find((k) => String(k.id) === keyID)?.name ?? ''
 }
 
 function fmtK(n: number): string {
@@ -38,139 +122,241 @@ function fmtK(n: number): string {
   return String(n)
 }
 
-onMounted(load)
+watch(selectedID, async (id, prev) => {
+  if (id === prev) return
+  if (id) {
+    await resolveSession(id)
+    await nextTick()
+    detailTitle.value?.focus()
+    return
+  }
+  await nextTick()
+  window.scrollTo({ top: listScroll })
+  focusRow(lastFocusID)
+})
+
+onMounted(async () => {
+  unsubscribe = subscribe(() => {
+    route.value = parseHash(location.hash)
+  })
+  try {
+    keys.value = await api.get<ClientKey[]>('/console/api/client-keys')
+  } catch {
+    // 密钥列表取不到时只影响筛选选项,不影响会话列表。
+  }
+  await load()
+  // 深链首屏:地址里已带会话时,补齐摘要并聚焦标题。
+  if (selectedID.value) {
+    await resolveSession(selectedID.value)
+    await nextTick()
+    detailTitle.value?.focus()
+  }
+})
+
+onBeforeUnmount(() => {
+  unsubscribe?.()
+})
 </script>
 
 <template>
-  <h2>可观测 (Observability)</h2>
-  <div v-if="error" class="error">{{ error }}</div>
+  <h1>可观测</h1>
+  <MetricsIsland v-if="!selectedID" />
+  <p v-if="error" class="error" role="alert">{{ error }}</p>
 
-  <div v-if="!selected" class="card">
+  <!-- 列表保活:隐藏时用 inert 断掉键盘与读屏访问 -->
+  <div v-show="!selectedID" :inert="selectedID !== null">
     <div class="filters">
-      <input v-model="query" type="text" placeholder="按 session id 前缀过滤" @keyup.enter="load" />
-      <button class="primary" @click="load">查询</button>
+      <label class="field key-filter">
+        密钥
+        <select v-model="keyFilter" name="trace-key" @change="load">
+          <option value="">全部密钥</option>
+          <option v-for="k in keys" :key="k.id" :value="String(k.id)">{{ k.name }}</option>
+        </select>
+      </label>
+      <label class="field grow">
+        按 session id 前缀过滤
+        <input
+          v-model="query"
+          name="trace-query"
+          type="text"
+          autocomplete="off"
+          spellcheck="false"
+          @keyup.enter="load"
+        />
+      </label>
+      <button class="primary" type="button" @click="load">查询</button>
     </div>
     <p class="hint">
-      跨会话入口。列表不含轮次数(推断轮次需逐会话比对,成本随会话数放大);轮次数在轨迹视图给出。
+      跨会话入口。列表不含轮次数(推断轮次需逐会话比对,成本随会话数放大)。轮次数在轨迹视图给出。
     </p>
-    <table v-if="sessions.length">
-      <thead>
-        <tr>
-          <th>session</th>
-          <th>判定</th>
-          <th>首见</th>
-          <th>末见</th>
-          <th>steps</th>
-          <th>in / out / cache</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="s in sessions" :key="s.session_id" class="row-click" @click="selected = s">
-          <td class="mono">{{ s.session_id }}</td>
-          <td>
-            <span class="tag">{{ sourceLabel(s.session_source) }}</span>
-            <span class="muted small">{{ s.session_note }}</span>
-          </td>
-          <td class="small">{{ formatDateTime(s.first_seen) }}</td>
-          <td class="small">{{ formatDateTime(s.last_seen) }}</td>
-          <td>{{ s.steps }}</td>
-          <td class="mono small">{{ fmtK(s.usage_in) }} / {{ fmtK(s.usage_out) }} / {{ fmtK(s.usage_cache) }}</td>
-        </tr>
-      </tbody>
-    </table>
-    <p v-else-if="loading" class="muted">加载中...</p>
-    <p v-else class="muted">没有会话</p>
-  </div>
-
-  <template v-else>
-    <div class="card">
-      <div class="head-row">
-        <div>
-          <div class="mono strong">{{ selected.session_id }}</div>
-          <div class="muted small">
-            判定 <b>{{ sourceLabel(selected.session_source) }}</b> · {{ selected.session_note }} ·
-            {{ formatDateTime(selected.first_seen) }} → {{ formatDateTime(selected.last_seen) }}
-            <span v-if="formatSpan(selected.first_seen, selected.last_seen)">
-              (跨度 {{ formatSpan(selected.first_seen, selected.last_seen) }})
-            </span>
-          </div>
-        </div>
-        <button class="ghost" @click="selected = null">← 返回列表</button>
-      </div>
-      <div class="tabs">
-        <button :class="{ active: panel === 'trace' }" @click="panel = 'trace'">轨迹</button>
-        <button :class="{ active: panel === 'tools' }" @click="panel = 'tools'">工具</button>
+    <div v-if="sessions.length" class="card no-pad">
+      <div class="table-scroll">
+        <table class="table-wide">
+          <thead>
+            <tr>
+              <th scope="col">session</th>
+              <th scope="col">Agent</th>
+              <th scope="col">首见</th>
+              <th scope="col">末见</th>
+              <th scope="col">steps</th>
+              <th scope="col">in / out / cache</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="s in sessions" :key="s.session_id" class="row-click" @click="openSession(s)">
+              <td class="mono" :title="s.session_id">
+                <a
+                  class="session-link"
+                  :href="buildHash(s.session_id, 'trace')"
+                  :data-session="s.session_id"
+                  @click="rememberList(s.session_id)"
+                >
+                  {{ shortID(s.session_id) }}
+                </a>
+              </td>
+              <td><span class="tag" :class="agentClass(s.agent)">{{ agentLabel(s.agent) }}</span></td>
+              <td class="small num">{{ formatDateTime(s.first_seen) }}</td>
+              <td class="small num">{{ formatDateTime(s.last_seen) }}</td>
+              <td class="num">{{ s.steps }}</td>
+              <td class="mono small">{{ fmtK(s.usage_in) }} / {{ fmtK(s.usage_out) }} / {{ fmtK(s.usage_cache) }}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
-    <TracePanel v-if="panel === 'trace'" :session-id="selected.session_id" />
-    <ToolsPanel v-else :session-id="selected.session_id" />
-  </template>
+    <p v-else-if="loading" class="muted" role="status" aria-live="polite">加载中…</p>
+    <p v-else class="muted">没有会话。先在客户端发起一次请求。</p>
+  </div>
+
+  <div v-if="selectedID">
+    <p v-if="notFound" class="error" role="alert">
+      会话不存在:<span class="mono">{{ selectedID }}</span>。<a :href="listHash">返回列表</a>
+    </p>
+    <template v-else-if="session">
+      <nav class="crumbs" aria-label="位置">
+        <a class="crumb-back" :href="listHash">
+          <AppIcon name="chevron" />可观测
+        </a>
+        <span class="crumb-sep" aria-hidden="true">/</span>
+        <span ref="detailTitle" class="crumb-current mono" tabindex="-1" :title="session.session_id">
+          {{ shortID(session.session_id) }}
+        </span>
+      </nav>
+
+      <div class="card">
+        <div class="head-row">
+          <div class="head-main">
+            <div class="mono strong" :title="session.session_id">
+              {{ rawID(session.session_id) }}
+              <span class="tag" :class="agentClass(session.agent)">{{ agentLabel(session.agent) }}</span>
+              <span v-if="keyName(session.session_id)" class="tag">{{ keyName(session.session_id) }}</span>
+            </div>
+            <div class="muted small num">
+              {{ formatDateTime(session.first_seen) }} → {{ formatDateTime(session.last_seen) }}
+              <span v-if="formatSpan(session.first_seen, session.last_seen)">
+                (跨度 {{ formatSpan(session.first_seen, session.last_seen) }})
+              </span>
+            </div>
+          </div>
+          <div class="segmented" aria-label="会话详情视图">
+            <button type="button" :aria-pressed="panel === 'trace'" @click="setPanel('trace')">轨迹</button>
+            <button type="button" :aria-pressed="panel === 'tools'" @click="setPanel('tools')">工具</button>
+          </div>
+        </div>
+      </div>
+      <TracePanel v-if="panel === 'trace'" :session-id="session.session_id" />
+      <ToolsPanel v-else :session-id="session.session_id" />
+    </template>
+    <p v-else class="muted" role="status" aria-live="polite">加载中…</p>
+  </div>
 </template>
 
 <style scoped>
 .filters {
   display: flex;
   gap: 10px;
-  align-items: center;
-  margin-bottom: 8px;
+  align-items: flex-end;
+  margin-bottom: var(--sp-3);
 }
-.filters input {
+
+.grow {
   max-width: 320px;
+  flex: 1;
 }
+
+.key-filter {
+  max-width: 200px;
+}
+
 .hint {
-  color: #6b7280;
-  font-size: 12px;
-  margin: 4px 0 14px;
+  margin: 0 0 14px;
 }
+
+.card.no-pad {
+  padding: 0;
+}
+
 .row-click {
   cursor: pointer;
 }
+
 .row-click:hover {
-  background: #f9fafb;
+  background: var(--surface-2);
 }
+
+.session-link {
+  color: var(--accent-strong);
+  text-decoration: none;
+}
+
+.session-link:hover {
+  text-decoration: underline;
+}
+
+/* 面包屑兼作返回入口:图标加文字,比纯文字按钮更容易被找到 */
+.crumbs {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+  font-size: var(--fs-13);
+}
+
+.crumb-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--accent-strong);
+  text-decoration: none;
+  padding: 2px 6px 2px 2px;
+  border-radius: var(--r-sm);
+}
+
+.crumb-back:hover {
+  background: var(--accent-soft);
+  text-decoration: underline;
+}
+
+.crumb-sep {
+  color: var(--muted);
+}
+
+.crumb-current {
+  color: var(--text);
+}
+
 .head-row {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 12px;
+  gap: var(--sp-3);
 }
-.tabs {
-  display: flex;
-  gap: 6px;
-  margin-top: 14px;
+
+.head-main {
+  min-width: 0;
 }
-.tabs button {
-  border: 1px solid #d1d5db;
-  background: #fff;
-  color: #6b7280;
-  border-radius: 6px;
-  padding: 6px 14px;
-  font-size: 13px;
-  cursor: pointer;
-}
-.tabs button.active {
-  background: #eef2ff;
-  border-color: #c7d2fe;
-  color: #27357a;
-  font-weight: 600;
-}
-.mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-.small {
-  font-size: 12px;
-}
-.strong {
-  font-weight: 600;
-  margin-bottom: 2px;
-}
-.tag {
-  display: inline-block;
-  font-size: 12px;
-  padding: 1px 8px;
-  border-radius: 999px;
-  background: #eef2ff;
-  color: #27357a;
-  margin-right: 6px;
+
+.segmented {
+  flex: 0 0 auto;
 }
 </style>

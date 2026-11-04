@@ -12,3 +12,6 @@ VALUES (?, ?, ?, ?);
 
 -- name: SetClientKeyEnabled :exec
 UPDATE client_keys SET enabled = ? WHERE id = ?;
+
+-- name: DeleteClientKey :execresult
+DELETE FROM client_keys WHERE id = ?;

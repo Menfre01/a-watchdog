@@ -31,8 +31,10 @@ build:
 	$(GO) build -trimpath -o $(BINARY) ./cmd/ds-context
 
 # run: 本地运行,示例: make run ARGS="--listen 127.0.0.1:8080"
+# 口令默认 admin(仅本机开发);改口令用 make run ADMIN_PASSWORD=xxx。
+ADMIN_PASSWORD ?= admin
 run:
-	$(GO) run ./cmd/ds-context $(ARGS)
+	$(GO) run ./cmd/ds-context --admin-password $(ADMIN_PASSWORD) $(ARGS)
 
 # smoke:轨迹视图原型冒烟 —— 断言形态基准渲染出新形态,并与前端图例文案比对
 smoke:

@@ -1,0 +1,596 @@
+/* 全局基线:重置、排版、控件与通用类。
+   全部颜色经 tokens.css 的变量给出,组件样式不再写裸色值。 */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: var(--fs-14);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+h1 {
+  font-size: var(--fs-20);
+  margin-bottom: var(--sp-4);
+}
+
+h2 {
+  font-size: var(--fs-20);
+  margin-bottom: var(--sp-4);
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: var(--accent-strong);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* 表单控件保留完整边框与浅填充:要让读者一眼看出这是输入框。 */
+input[type='text'],
+input[type='password'],
+input[type='number'],
+select,
+textarea {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  font-size: var(--fs-14);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
+}
+
+/* 悬停先给一点回应,减少聚焦瞬间的跳变 */
+input[type='text']:hover,
+input[type='password']:hover,
+input[type='number']:hover,
+select:hover,
+textarea:hover {
+  border-color: var(--muted);
+}
+
+/* 聚焦:边框换成强调色,底色提亮一档。不加外圈,避免两条边并排。 */
+input[type='text']:focus-visible,
+input[type='password']:focus-visible,
+input[type='number']:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--surface);
+}
+
+/* 强制高对比模式下光环可能不可见,退回系统描边。 */
+@media (forced-colors: active) {
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 2px solid;
+  }
+}
+
+input[type='checkbox'] {
+  width: auto;
+  accent-color: var(--accent);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-14);
+}
+
+th,
+td {
+  text-align: left;
+  padding: var(--sp-2) 10px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+
+th {
+  color: var(--muted);
+  font-weight: 500;
+  font-size: var(--fs-13);
+}
+
+/* 表格容器:窄屏只在容器内横向滚动,页面本身不横滚 */
+.table-scroll {
+  overflow-x: auto;
+}
+
+/* 列多的表给最小宽度,保证窄屏只在表内横滚;列少的表按容器自适应 */
+.table-wide {
+  min-width: 720px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+
+button.primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--accent);
+  color: var(--on-accent);
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  padding: 8px 14px;
+  font-size: var(--fs-14);
+  font-weight: 500;
+}
+
+button.primary:hover {
+  background: var(--accent-strong);
+}
+
+button.ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 5px 10px;
+  font-size: var(--fs-13);
+}
+
+/* 一行内的多个操作按钮:间距由容器给,避免按钮自带外边距导致疏密不一 */
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+button.ghost:hover {
+  border-color: var(--muted);
+}
+
+button.danger {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+button.link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--accent-strong);
+  font-size: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.error {
+  color: var(--danger);
+  font-size: var(--fs-13);
+  margin-top: var(--sp-2);
+}
+
+/* 通知:左侧色条表示严重度,底色只做轻微提示 */
+.notice {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--muted);
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+  font-size: var(--fs-13);
+  margin-bottom: var(--sp-3);
+  overflow-wrap: anywhere;
+}
+
+.notice.ok {
+  background: var(--ok-soft);
+  border-color: var(--ok);
+}
+
+.notice.info {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.notice.danger {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+}
+
+/* 三种 pill 共用同一套度量:徽标(badge)、标签(tag)、碎片(chip) */
+.badge,
+.tag,
+.chip {
+  display: inline-block;
+  font-size: var(--fs-12);
+  line-height: 1.6;
+  padding: 0 8px;
+  border-radius: 999px;
+}
+
+.badge {
+  padding: 1px 8px;
+}
+
+.tag,
+.chip {
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.tag.ok,
+.chip.ok {
+  border-color: var(--ok);
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.tag.danger,
+.chip.danger {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.tag.info,
+.chip.info {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.badge.on {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.badge.off {
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.mono,
+.num {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.small {
+  font-size: var(--fs-12);
+}
+
+.strong {
+  font-weight: 600;
+}
+
+.center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+label.field {
+  display: block;
+  font-size: var(--fs-12);
+  color: var(--muted);
+}
+
+label.field input,
+label.field select {
+  margin-top: var(--sp-1);
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.truncate {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 复选框单独成行:控件在左、文字在右,与输入框行高对齐 */
+label.check-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 34px;
+  font-size: var(--fs-14);
+  color: var(--text);
+}
+
+label.check-row input[type='checkbox'] {
+  margin: 0;
+  width: 16px;
+  height: 16px;
+}
+
+/* 分段控件:一组互斥按钮共用一条外框 */
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+
+.segmented button {
+  border: 0;
+  border-left: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: var(--fs-12);
+  padding: 6px 12px;
+}
+
+.segmented button:first-child {
+  border-left: 0;
+}
+
+.segmented button:hover {
+  color: var(--text);
+}
+
+.segmented button[aria-pressed='true'] {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+/* 页头:标题在左,主操作在右 */
+.page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+
+.page-head h1 {
+  margin-bottom: 0;
+}
+
+/* 提示文字:只定字色与字号,间距由所在区块决定 */
+.hint {
+  color: var(--muted);
+  font-size: var(--fs-12);
+}
+
+/* 孤岛:面板靠底色、圆角与阴影浮在页面上,块间只用留白分隔 */
+.islands {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.island {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+  padding: var(--sp-4);
+}
+
+.island-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+}
+
+.island-head h2 {
+  margin: 0;
+  font-size: var(--fs-16);
+}
+
+/* 宽屏并排、窄屏堆叠:两列的最小宽度由内容决定 */
+.island-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-4);
+}
+
+/* 密钥列只有三列,固定宽度即可;模型目录留出可伸缩空间 */
+@media (min-width: 1180px) {
+  .island-pair {
+    grid-template-columns: minmax(0, 1fr) 380px;
+  }
+}
+
+/* 图标按钮:用于表格行内的重复操作,名称由 aria-label 给出 */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--muted);
+}
+
+.icon-btn:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.icon-btn.danger {
+  color: var(--danger);
+}
+
+.icon-btn.danger:hover {
+  background: var(--danger-soft);
+}
+
+/* Agent 标签:四类各有一个色相,扫描时不必读文字也能分辨 */
+.tag.agent-claude {
+  border-color: var(--agent-claude);
+  background: var(--agent-claude-soft);
+  color: var(--agent-claude);
+}
+
+.tag.agent-codex {
+  border-color: var(--agent-codex);
+  background: var(--agent-codex-soft);
+  color: var(--agent-codex);
+}
+
+.tag.agent-dsh {
+  border-color: var(--agent-dsh);
+  background: var(--agent-dsh-soft);
+  color: var(--agent-dsh);
+}
+
+
+/* ---- 元数据标记:全站唯一的时间、大小、状态、名称格式 ---- */
+.num {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-11);
+  color: var(--muted);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.num.w-time {
+  min-width: 64px;
+}
+
+.num.w-size {
+  min-width: 56px;
+}
+
+.num.w-code {
+  min-width: 40px;
+  font-weight: 600;
+}
+
+.num.ok {
+  color: var(--ok);
+}
+
+.num.warn {
+  color: var(--warn);
+}
+
+.num.danger {
+  color: var(--danger);
+}
+
+.name {
+  font-family: var(--mono);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 56px;
+  font-size: var(--fs-11);
+  color: var(--muted);
+}
+
+.state::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.state.ok {
+  color: var(--ok);
+}
+
+.state.danger {
+  color: var(--danger);
+}
+
+.state.unknown {
+  color: var(--muted);
+}

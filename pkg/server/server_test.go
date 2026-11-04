@@ -74,7 +74,7 @@ func newTestStack(t *testing.T, upstreamURL string) (*config.Store, http.Handler
 	if err != nil {
 		t.Fatalf("Wire() error = %v", err)
 	}
-	return store, New(chainHandler, discardLogger()).Handler()
+	return store, New(chainHandler, discardLogger()).WithToolEvents(store).Handler()
 }
 
 // postJSON 通过测试客户端发起请求。

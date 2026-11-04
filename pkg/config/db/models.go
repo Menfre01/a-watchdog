@@ -23,6 +23,17 @@ type Model struct {
 	UpdatedAt     string
 }
 
+type PromptEvent struct {
+	ID         int64
+	Client     string
+	SessionID  string
+	TurnID     string
+	PromptID   string
+	PromptLen  int64
+	Ts         string
+	ReceivedAt string
+}
+
 type Provider struct {
 	ID         int64
 	Name       string
@@ -63,6 +74,14 @@ type RequestBody struct {
 	CreatedAt string
 }
 
+type ResponseBody struct {
+	RequestID int64
+	BodyGzip  []byte
+	Truncated int64
+	Complete  int64
+	CreatedAt string
+}
+
 type Setting struct {
 	Key   string
 	Value string
@@ -79,4 +98,23 @@ type Snapshot struct {
 	NdjsonGzip    []byte
 	LineHashes    []byte
 	LineSizes     []byte
+}
+
+type ToolEvent struct {
+	ID              int64
+	Client          string
+	SessionID       string
+	TurnID          string
+	ToolCallID      string
+	ToolName        string
+	Phase           string
+	Status          string
+	Boundary        string
+	ApprovalWait    int64
+	Ts              string
+	ReceivedAt      string
+	InputGzip       []byte
+	InputTruncated  int64
+	ResultGzip      []byte
+	ResultTruncated int64
 }

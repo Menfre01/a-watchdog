@@ -148,7 +148,7 @@ func TestTraceEndToEnd(t *testing.T) {
 	}
 
 	// 会话列表聚合:steps 即请求数,缓存 token 求和。
-	summaries, err := store.ListSessionSummaries(context.Background(), "", "", "", 10)
+	summaries, err := store.ListSessionSummaries(context.Background(), "", "", "", "", 10)
 	if err != nil || len(summaries) != 1 {
 		t.Fatalf("会话列表 = %+v, %v", summaries, err)
 	}

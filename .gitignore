@@ -45,6 +45,9 @@ __pycache__/
 # Claude Code(本地命令与 skills)
 .claude/
 
+# DeepSeek Harness(本地 skills,软链到 .claude/skills)
+.dsh/
+
 # gstack(本地工具目录)
 .gstack/
 

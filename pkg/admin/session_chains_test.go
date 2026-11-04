@@ -143,6 +143,19 @@ func TestAdmin_TraceSkeletonChains(t *testing.T) {
 		t.Errorf("有 system 指纹却标退化: %v", chains)
 	}
 
+	// 统计拆分:总计等于主路加旁路,旁路是子集而不是额外项。
+	mainSum, _ := body["main"].(map[string]any)
+	sideSum, _ := body["side"].(map[string]any)
+	if mainSum["steps"] != float64(2) || sideSum["steps"] != float64(1) {
+		t.Errorf("拆分 steps = main %v / side %v, want 2 / 1", mainSum["steps"], sideSum["steps"])
+	}
+	if body["steps"] != float64(3) {
+		t.Errorf("总计 steps = %v, want 3", body["steps"])
+	}
+	if mainSum["usage_in"] != float64(200) || sideSum["usage_in"] != float64(100) {
+		t.Errorf("拆分 in = main %v / side %v, want 200 / 100", mainSum["usage_in"], sideSum["usage_in"])
+	}
+
 	// 会话列表不含链字段:列表页不做整段指纹比对。
 	listResp := do(t, srv.Client(), http.MethodGet, srv.URL+"/console/api/traces", "", cookie, false)
 	var list []traceJSON

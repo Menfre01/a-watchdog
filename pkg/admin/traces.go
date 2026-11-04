@@ -158,8 +158,30 @@ func (a *Admin) analyzeSession(ctx context.Context, sessionID string) (*sessionA
 		added:       added,
 		tools:       trace.ExtractTools(toolInput),
 	}
+	analysis.attributeTools()
 	a.traces.Put(cacheKey, analysis)
 	return analysis, nil
+}
+
+// attributeTools 把工具从「首次出现的步」退到「生成该调用的步」。
+// tool_use 会出现在下一步请求的历史里;不退回,明细与工具耗时会落到错误的步上。
+func (an *sessionAnalysis) attributeTools() {
+	index := make(map[int64]int, len(an.steps))
+	for i, step := range an.steps {
+		index[step.Seq] = i
+	}
+	for i := range an.tools {
+		call := &an.tools[i]
+		idx, ok := index[call.IssuedSeq]
+		if !ok {
+			continue
+		}
+		prev, ok := an.prevIdxOf[idx]
+		if !ok {
+			continue
+		}
+		call.IssuedSeq = an.steps[prev].Seq
+	}
 }
 
 // allMessagesOf 解压并解析整段快照。调用方一次解压后既算 system 指纹,
@@ -200,12 +222,10 @@ func (an *sessionAnalysis) indexOfSeq(seq int64) (int, bool) {
 // 列表不呈现轮次数(推断成本随会话数放大,见 admin-console 规范)。
 func (a *Admin) handleListTraces(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	prefix := q.Get("q")
-	if keyID := q.Get("key_id"); keyID != "" {
-		// client key 维度就是 session_id 的前缀(<key_id>:<标识串>)。
-		prefix = keyID + ":"
-	}
-	rows, err := a.store.ListSessionSummaries(r.Context(), prefix, q.Get("from"), q.Get("to"), parseLimit(q.Get("limit")))
+	// 两个过滤条件各自成立:key_id 选密钥,prefix 匹配客户端原始标识。
+	rows, err := a.store.ListSessionSummaries(
+		r.Context(), q.Get("key_id"), q.Get("q"), q.Get("from"), q.Get("to"), parseLimit(q.Get("limit")),
+	)
 	if err != nil {
 		a.storeErr(w, err)
 		return
@@ -216,6 +236,7 @@ func (a *Admin) handleListTraces(w http.ResponseWriter, r *http.Request) {
 			"session_id":     row.SessionID,
 			"session_source": row.SessionSource,
 			"session_note":   row.SessionNote,
+			"agent":          trace.AgentFromNote(row.SessionNote),
 			"first_seen":     row.FirstSeen,
 			"last_seen":      row.LastSeen,
 			"steps":          row.Steps,
@@ -234,7 +255,9 @@ func (a *Admin) handleTraceDetail(w http.ResponseWriter, r *http.Request) {
 		a.traceErr(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, analysis.skeletonJSON())
+	skeleton := analysis.skeletonJSON()
+	a.attachToolDurations(r.Context(), analysis, skeleton)
+	writeJSON(w, http.StatusOK, skeleton)
 }
 
 // handleTraceDigest 返回渐进填充数据:每轮标题与工具聚合(需解析各步新增行)。
@@ -266,7 +289,9 @@ func (a *Admin) handleTraceStep(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	full := r.URL.Query().Get("full") == "1"
-	writeJSON(w, http.StatusOK, analysis.stepDetailJSON(idx, full, parseCtxLines(r.URL.Query().Get("ctx"))))
+	detail := analysis.stepDetailJSON(idx, full, parseCtxLines(r.URL.Query().Get("ctx")))
+	detail["response"] = a.responseOf(r.Context(), analysis.steps[idx].RequestID)
+	writeJSON(w, http.StatusOK, detail)
 }
 
 // parseCtxLines 解析差异块的上下文行数:默认 3(与 git 一致),

@@ -107,6 +107,7 @@ func (p *Proxy) Handle(ctx *chain.Context) error {
 	ctx.Upstream = outcome
 
 	relayErr := RelayStream(ctx.W, resp.Body, observer)
+	ctx.ResponseBody, ctx.ResponseTruncated = observer.Captured()
 	usage := observer.Usage()
 	outcome.UsageIn, outcome.UsageOut, outcome.UsageCache = usage.In, usage.Out, usage.Cache
 	return relayErr

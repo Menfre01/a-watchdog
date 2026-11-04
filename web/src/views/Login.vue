@@ -7,7 +7,7 @@ const password = ref('')
 const error = ref('')
 const busy = ref(false)
 
-async function submit() {
+async function submit(): Promise<void> {
   error.value = ''
   busy.value = true
   try {
@@ -23,23 +23,30 @@ async function submit() {
 
 <template>
   <div class="center">
-    <form class="card login-card" @submit.prevent="submit">
-      <h2>ds-context 控制台</h2>
+    <form class="card login-card" :aria-busy="busy" @submit.prevent="submit">
+      <h1>ds-context 控制台</h1>
       <label class="field">
         管理员口令
-        <input v-model="password" type="password" autofocus />
+        <input
+          v-model="password"
+          name="admin-password"
+          type="password"
+          autocomplete="current-password"
+          autofocus
+        />
       </label>
-      <button class="primary" type="submit" :disabled="busy">登录</button>
-      <div v-if="error" class="error">{{ error }}</div>
+      <button class="primary" type="submit" :disabled="busy">{{ busy ? '登录中…' : '登录' }}</button>
+      <p v-if="error" class="error" role="alert">{{ error }}</p>
     </form>
   </div>
 </template>
 
 <style scoped>
 .login-card {
-  width: 320px;
+  width: min(320px, calc(100vw - 32px));
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--sp-3);
+  margin: 0;
 }
 </style>

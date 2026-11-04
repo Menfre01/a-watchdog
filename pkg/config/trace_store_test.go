@@ -186,7 +186,7 @@ func TestStore_ListSessionSummaries(t *testing.T) {
 	insertTraceSnapshot(t, s, a2, "1:sessA", 2, "2026-10-13T09:30:00Z")
 	insertTraceSnapshot(t, s, b1, "2:sessB", 1, "2026-10-12T10:00:00Z")
 
-	got, err := s.ListSessionSummaries(ctx, "", "", "", 10)
+	got, err := s.ListSessionSummaries(ctx, "", "", "", "", 10)
 	if err != nil {
 		t.Fatalf("ListSessionSummaries() error = %v", err)
 	}
@@ -210,20 +210,32 @@ func TestStore_ListSessionSummaries(t *testing.T) {
 		t.Errorf("会话 B 聚合 = %+v", got[1])
 	}
 
-	// 前缀过滤:只取 client key 2 的会话。
-	got, err = s.ListSessionSummaries(ctx, "2:", "", "", 10)
+	// 密钥过滤:只取 client key 2 的会话。
+	got, err = s.ListSessionSummaries(ctx, "2", "", "", "", 10)
 	if err != nil || len(got) != 1 || got[0].SessionID != "2:sessB" {
-		t.Fatalf("prefix 过滤 = %+v, %v", got, err)
+		t.Fatalf("密钥过滤 = %+v, %v", got, err)
+	}
+
+	// 原始标识前缀过滤:匹配冒号之后的部分,与界面显示一致。
+	got, err = s.ListSessionSummaries(ctx, "", "sessB", "", "", 10)
+	if err != nil || len(got) != 1 || got[0].SessionID != "2:sessB" {
+		t.Fatalf("标识前缀过滤 = %+v, %v", got, err)
+	}
+
+	// 两个条件叠加。
+	got, err = s.ListSessionSummaries(ctx, "1", "sessA", "", "", 10)
+	if err != nil || len(got) != 1 || got[0].SessionID != "1:sessA" {
+		t.Fatalf("叠加过滤 = %+v, %v", got, err)
 	}
 
 	// 时间过滤:会话内有任一步落在区间内即入选(A 在区间内,B 不在)。
-	got, err = s.ListSessionSummaries(ctx, "", "2026-10-13T00:00:00Z", "2026-10-13T23:59:59Z", 10)
+	got, err = s.ListSessionSummaries(ctx, "", "", "2026-10-13T00:00:00Z", "2026-10-13T23:59:59Z", 10)
 	if err != nil || len(got) != 1 || got[0].SessionID != "1:sessA" {
 		t.Fatalf("时间过滤 = %+v, %v", got, err)
 	}
 
 	// 行数上限。
-	got, err = s.ListSessionSummaries(ctx, "", "", "", 1)
+	got, err = s.ListSessionSummaries(ctx, "", "", "", "", 1)
 	if err != nil || len(got) != 1 {
 		t.Fatalf("row_limit = %+v, %v", got, err)
 	}

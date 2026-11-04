@@ -73,6 +73,7 @@ func (a *Admin) Handler() http.Handler {
 	mux.HandleFunc("GET /console/api/client-keys", a.guard(a.handleListClientKeys))
 	mux.HandleFunc("POST /console/api/client-keys", a.csrfGuard(a.guard(a.handleCreateClientKey)))
 	mux.HandleFunc("PUT /console/api/client-keys/{id}", a.csrfGuard(a.guard(a.handleUpdateClientKey)))
+	mux.HandleFunc("DELETE /console/api/client-keys/{id}", a.csrfGuard(a.guard(a.handleDeleteClientKey)))
 
 	// settings(全局配置)。
 	mux.HandleFunc("GET /console/api/settings", a.guard(a.handleListSettings))
@@ -83,6 +84,9 @@ func (a *Admin) Handler() http.Handler {
 	mux.HandleFunc("GET /console/api/traces/{session_id}", a.guard(a.handleTraceDetail))
 	mux.HandleFunc("GET /console/api/traces/{session_id}/digest", a.guard(a.handleTraceDigest))
 	mux.HandleFunc("GET /console/api/traces/{session_id}/{seq}", a.guard(a.handleTraceStep))
+	mux.HandleFunc("GET /console/api/tool-events", a.guard(a.handleListToolEvents))
+	mux.HandleFunc("GET /console/api/metrics", a.guard(a.handleRequestMetrics))
+	mux.HandleFunc("GET /console/api/prompt-events", a.guard(a.handleListPromptEvents))
 
 	// 内嵌前端(SPA 回退)。
 	mux.Handle("/console/", a.staticHandler())

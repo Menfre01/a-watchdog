@@ -32,6 +32,8 @@ type InsertStore interface {
 	SaveTrace(ctx context.Context, body db.InsertRequestBodyParams, snap *config.TraceSnapshot) error
 	// NextSnapshotSeq 返回某会话的下一个快照序号(自 1 起)。
 	NextSnapshotSeq(ctx context.Context, sessionID string) (int64, error)
+	// InsertResponseBody 写入上游响应原文(旁路副本)。
+	InsertResponseBody(ctx context.Context, arg db.InsertResponseBodyParams) error
 }
 
 const (
@@ -51,6 +53,10 @@ type recordItem struct {
 	raw    rawRequest
 	// session 在入队前判定:它只依赖请求头与 client key,与消息内容无关(design.md D4)。
 	session trace.SessionDecision
+	// resp 是上游响应原文副本;截断与完整性随记录一起落库。
+	resp      []byte
+	truncated bool
+	complete  bool
 }
 
 // rawRequest 是原始层的入参:请求行、脱敏后的入向头与请求体原文。
@@ -159,6 +165,21 @@ func (r *Recorder) insert(ctx context.Context, batch []recordItem) {
 		}
 		if err := r.store.SaveTrace(ctx, body, snap); err != nil {
 			r.logger.Error("轨迹写入失败", "err", err)
+		}
+		if len(item.resp) > 0 {
+			compressed, err := trace.Compress(item.resp)
+			if err != nil {
+				r.logger.Error("响应压缩失败", "err", err)
+				continue
+			}
+			if err := r.store.InsertResponseBody(ctx, db.InsertResponseBodyParams{
+				RequestID: ids[i],
+				BodyGzip:  compressed,
+				Truncated: config.BoolToInt(item.truncated),
+				Complete:  config.BoolToInt(item.complete),
+			}); err != nil {
+				r.logger.Error("响应写入失败", "err", err)
+			}
 		}
 	}
 }
@@ -280,10 +301,14 @@ func snapshotRecord(ctx *chain.Context, chainErr error) recordItem {
 	if params.ClientKeyID != nil {
 		keyID = *params.ClientKeyID
 	}
+	complete := chainErr == nil
 	return recordItem{
-		params:  params,
-		raw:     rawRequestOf(ctx),
-		session: trace.ResolveSession(keyID, headers, ctx.StartedAt),
+		params:    params,
+		raw:       rawRequestOf(ctx),
+		session:   trace.ResolveSession(keyID, headers, ctx.StartedAt),
+		resp:      ctx.ResponseBody,
+		truncated: ctx.ResponseTruncated,
+		complete:  complete,
 	}
 }
 

@@ -31,8 +31,8 @@ func TestOpen_CreatesSchemaAndIsIdempotent(t *testing.T) {
 	if err := s2.sqlDB.QueryRowContext(context.Background(), "PRAGMA user_version").Scan(&version); err != nil {
 		t.Fatalf("read user_version error = %v", err)
 	}
-	if version != 3 {
-		t.Fatalf("user_version = %d, want 3(0001+0002+0003 个迁移)", version)
+	if version != 7 {
+		t.Fatalf("user_version = %d, want 7(0001..0007 个迁移)", version)
 	}
 	if providers, err := s2.ListProviders(context.Background()); err != nil || len(providers) != 0 {
 		t.Fatalf("ListProviders() = %v, %v; want empty, nil", providers, err)

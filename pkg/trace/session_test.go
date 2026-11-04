@@ -186,3 +186,44 @@ func TestNormalizeSessionID(t *testing.T) {
 		}
 	}
 }
+
+// TestResolveSessionAgent 覆盖四类 agent 分类与头名优先级。
+func TestResolveSessionAgent(t *testing.T) {
+	cases := []struct {
+		name    string
+		headers map[string][]string
+		want    string
+	}{
+		{"claude", map[string][]string{"x-claude-code-session-id": {"s"}}, AgentClaudeCode},
+		{"dsh", map[string][]string{"x-deepseek-harness-session-id": {"s"}}, AgentDSH},
+		{"codex session-id", map[string][]string{"session-id": {"s"}}, AgentCodex},
+		{"codex thread_id", map[string][]string{"thread_id": {"s"}}, AgentCodex},
+		{"claude 优先于通用头", map[string][]string{
+			"session-id":               {"generic"},
+			"x-claude-code-session-id": {"claude"},
+		}, AgentClaudeCode},
+		{"无头名归 Other", map[string][]string{}, AgentOther},
+	}
+	for _, c := range cases {
+		got := ResolveSession(1, c.headers, fixedNow)
+		if got.Agent != c.want {
+			t.Errorf("%s: agent = %q, want %q", c.name, got.Agent, c.want)
+		}
+	}
+}
+
+// TestAgentFromNote 覆盖由判定理由派生分类:历史行也能得到同一分类。
+func TestAgentFromNote(t *testing.T) {
+	cases := map[string]string{
+		"explicit: x-claude-code-session-id":      AgentClaudeCode,
+		"explicit: x-deepseek-harness-session-id": AgentDSH,
+		"explicit: thread-id":                     AgentCodex,
+		"anon":                                    AgentOther,
+		"degraded: invalid identifier (len 129); no identifier (anon by date)": AgentOther,
+	}
+	for note, want := range cases {
+		if got := AgentFromNote(note); got != want {
+			t.Errorf("AgentFromNote(%q) = %q, want %q", note, got, want)
+		}
+	}
+}

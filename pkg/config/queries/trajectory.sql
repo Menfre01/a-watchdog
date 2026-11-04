@@ -71,7 +71,13 @@ SELECT
     CAST(COALESCE(SUM(r.usage_cache), 0) AS INTEGER) AS usage_cache
 FROM snapshots s
 JOIN requests r ON r.id = s.request_id
-WHERE (sqlc.narg('prefix') IS NULL OR s.session_id LIKE sqlc.narg('prefix') || '%')
+-- prefix matches the client identifier (the part after the colon), so search
+-- follows what the UI shows.
+WHERE (sqlc.narg('key_id') IS NULL OR s.session_id LIKE sqlc.narg('key_id') || ':%')
+  AND (
+    sqlc.narg('prefix') IS NULL
+    OR substr(s.session_id, instr(s.session_id, ':') + 1) LIKE sqlc.narg('prefix') || '%'
+  )
   AND (sqlc.narg('from_ts') IS NULL OR s.ts >= sqlc.narg('from_ts'))
   AND (sqlc.narg('to_ts') IS NULL OR s.ts <= sqlc.narg('to_ts'))
 GROUP BY s.session_id

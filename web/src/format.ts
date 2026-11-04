@@ -1,10 +1,23 @@
-// 时间格式化:后端以 RFC3339Nano(UTC) 返回,界面统一为
-// `YYYY-MM-DD HH:mm(:ss)` 的本地时刻(去掉 T / Z / 毫秒,保留完整日期)。
+// 时间格式化:后端以 RFC3339Nano(UTC) 返回,界面统一为本地时刻。
+// 用 Intl.DateTimeFormat('sv-SE') 得到 `YYYY-MM-DD HH:mm(:ss)`,不手写补零。
+const dateTime = new Intl.DateTimeFormat('sv-SE', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+})
 
-/** pad2 补零到两位。 */
-function pad2(n: number): string {
-  return String(n).padStart(2, '0')
-}
+const dateTimeSeconds = new Intl.DateTimeFormat('sv-SE', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hourCycle: 'h23',
+})
 
 /**
  * formatDateTime 输出 `YYYY-MM-DD HH:mm`(本地时区)。
@@ -13,7 +26,7 @@ function pad2(n: number): string {
 export function formatDateTime(ts: string): string {
   const d = new Date(ts)
   if (Number.isNaN(d.getTime())) return ts
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`
+  return dateTime.format(d)
 }
 
 /**
@@ -23,7 +36,7 @@ export function formatDateTime(ts: string): string {
 export function formatFullTime(ts: string): string {
   const d = new Date(ts)
   if (Number.isNaN(d.getTime())) return ts
-  return `${formatDateTime(ts)}:${pad2(d.getSeconds())}`
+  return dateTimeSeconds.format(d)
 }
 
 /**
@@ -37,6 +50,20 @@ export function formatSpan(from: string, to: string): string {
   const ms = b - a
   const minutes = Math.floor(ms / 60000)
   const seconds = Math.round((ms % 60000) / 1000)
-  if (minutes > 0) return `${minutes}m${pad2(seconds)}s`
+  if (minutes > 0) return `${minutes}m${String(seconds).padStart(2, '0')}s`
   return `${seconds}s`
+}
+
+// fmtK 把大数压成 k 单位;null 显示为破折号。
+export function fmtK(n: number | null): string {
+  if (n === null) return '—'
+  if (n >= 1000) return (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'k'
+  return String(n)
+}
+
+// fmtMs 按量级选择 ms / s / m+s,供延迟与时长共用。
+export function fmtMs(ms: number): string {
+  if (ms >= 60000) return Math.floor(ms / 60000) + 'm' + Math.round((ms % 60000) / 1000) + 's'
+  if (ms >= 1000) return (ms / 1000).toFixed(1) + 's'
+  return ms + 'ms'
 }

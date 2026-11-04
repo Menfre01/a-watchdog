@@ -1,0 +1,73 @@
+package admin
+
+import (
+	"net/http"
+	"time"
+)
+
+// metricsWindow 返回统计窗口的起点;all 表示不限时间。
+func metricsWindow(raw string) string {
+	now := time.Now().UTC()
+	switch raw {
+	case "1h":
+		return now.Add(-time.Hour).Format(time.RFC3339Nano)
+	case "7d":
+		return now.Add(-7 * 24 * time.Hour).Format(time.RFC3339Nano)
+	case "all":
+		return ""
+	default: // 24h 为默认窗口
+		return now.Add(-24 * time.Hour).Format(time.RFC3339Nano)
+	}
+}
+
+// percentile 取升序样本的第 p 百分位;样本为空时返回 0。
+func percentile(sorted []int64, p float64) int64 {
+	if len(sorted) == 0 {
+		return 0
+	}
+	index := int(float64(len(sorted))*p+0.999999) - 1
+	if index < 0 {
+		index = 0
+	}
+	if index >= len(sorted) {
+		index = len(sorted) - 1
+	}
+	return sorted[index]
+}
+
+// handleRequestMetrics 返回请求侧的汇总指标。
+func (a *Admin) handleRequestMetrics(w http.ResponseWriter, r *http.Request) {
+	window := r.URL.Query().Get("window")
+	since := metricsWindow(window)
+	agg, err := a.store.AggregateRequestsSince(r.Context(), since)
+	if err != nil {
+		a.storeErr(w, err)
+		return
+	}
+	latencies, err := a.store.ListRequestLatenciesSince(r.Context(), since)
+	if err != nil {
+		a.storeErr(w, err)
+		return
+	}
+	errorRate := 0.0
+	if agg.Count > 0 {
+		errorRate = float64(agg.Errors) / float64(agg.Count)
+	}
+	// 缓存命中率按「缓存读取 ÷(输入 + 缓存读取)」计算,分母为 0 时记 0。
+	cacheRate := 0.0
+	if agg.UsageIn+agg.UsageCache > 0 {
+		cacheRate = float64(agg.UsageCache) / float64(agg.UsageIn+agg.UsageCache)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"count":       agg.Count,
+		"errors":      agg.Errors,
+		"error_rate":  errorRate,
+		"p50_ms":      percentile(latencies, 0.50),
+		"p95_ms":      percentile(latencies, 0.95),
+		"p99_ms":      percentile(latencies, 0.99),
+		"usage_in":    agg.UsageIn,
+		"usage_out":   agg.UsageOut,
+		"usage_cache": agg.UsageCache,
+		"cache_rate":  cacheRate,
+	})
+}

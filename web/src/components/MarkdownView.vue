@@ -64,18 +64,18 @@ const html = computed(() => {
   margin: 2px 0;
 }
 .md :deep(code) {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--mono);
   font-size: 12px;
-  background: #f1f3f6;
-  border-radius: 4px;
+  background: var(--code-bg);
+  border-radius: var(--r-sm);
   padding: 1px 5px;
 }
 .md :deep(pre) {
   margin: 8px 0;
   padding: 10px 12px;
-  background: #f8fafc;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
   overflow-x: auto;
 }
 .md :deep(pre code) {
@@ -87,8 +87,8 @@ const html = computed(() => {
 .md :deep(blockquote) {
   margin: 8px 0;
   padding: 2px 0 2px 12px;
-  border-left: 3px solid #d7dce3;
-  color: #4b5563;
+  border-left: 3px solid var(--line);
+  color: var(--muted);
 }
 .md :deep(table) {
   border-collapse: collapse;
@@ -97,20 +97,20 @@ const html = computed(() => {
 }
 .md :deep(th),
 .md :deep(td) {
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--line);
   padding: 4px 8px;
   text-align: left;
 }
 .md :deep(th) {
-  background: #f8fafc;
+  background: var(--surface-2);
   font-weight: 600;
 }
 .md :deep(a) {
-  color: #2f6fed;
+  color: var(--accent);
 }
 .md :deep(hr) {
   border: 0;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--line);
   margin: 12px 0;
 }
 .md :deep(img) {

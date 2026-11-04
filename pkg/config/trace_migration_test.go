@@ -57,8 +57,8 @@ func TestOpen_CreatesTraceTables(t *testing.T) {
 	if err := s.sqlDB.QueryRowContext(context.Background(), "PRAGMA user_version").Scan(&version); err != nil {
 		t.Fatalf("read user_version error = %v", err)
 	}
-	if version != 3 {
-		t.Fatalf("user_version = %d, want 3(0001+0002+0003)", version)
+	if version != 7 {
+		t.Fatalf("user_version = %d, want 7(0001..0007)", version)
 	}
 
 	// 逐列断言:迁移漏列时直接定位到具体列。

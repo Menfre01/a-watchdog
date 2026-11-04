@@ -117,6 +117,10 @@ func TestAdmin_ListTraces(t *testing.T) {
 	if got["session_source"] != "explicit" {
 		t.Errorf("判定来源 = %v", got["session_source"])
 	}
+	// agent 分类由判定理由派生:测试夹具用 claude 头名。
+	if got["agent"] != "claude-code" {
+		t.Errorf("agent = %v, want claude-code", got["agent"])
+	}
 	// 列表不含轮次数(推断成本随会话数放大)。
 	if _, exists := got["turns"]; exists {
 		t.Errorf("列表不应含轮次数: %v", got)
@@ -135,6 +139,37 @@ func TestAdmin_ListTraces(t *testing.T) {
 	decode(t, resp, &byKey)
 	if len(byKey) != 1 {
 		t.Errorf("key_id 过滤 = %v", byKey)
+	}
+	// 密钥与标识前缀叠加:两者都匹配才入选。
+	resp = do(t, srv.Client(), http.MethodGet, srv.URL+"/console/api/traces?key_id=1&q=sess", "", cookie, false)
+	var combined []traceJSON
+	decode(t, resp, &combined)
+	if len(combined) != 1 {
+		t.Errorf("叠加过滤 = %v, want 1 条", combined)
+	}
+	// 前缀不匹配时为空,说明 q 没有被 key_id 覆盖。
+	resp = do(t, srv.Client(), http.MethodGet, srv.URL+"/console/api/traces?key_id=1&q=nope", "", cookie, false)
+	decode(t, resp, &combined)
+	if len(combined) != 0 {
+		t.Errorf("叠加过滤(不匹配) = %v, want 空", combined)
+	}
+	// 其他密钥下没有该会话。
+	resp = do(t, srv.Client(), http.MethodGet, srv.URL+"/console/api/traces?key_id=2&q=sess", "", cookie, false)
+	decode(t, resp, &combined)
+	if len(combined) != 0 {
+		t.Errorf("叠加过滤(其他密钥) = %v, want 空", combined)
+	}
+	// 只给前缀、不给密钥时,按客户端原始标识匹配:界面显示什么就能搜什么。
+	resp = do(t, srv.Client(), http.MethodGet, srv.URL+"/console/api/traces?q=sess", "", cookie, false)
+	decode(t, resp, &combined)
+	if len(combined) != 1 {
+		t.Errorf("原始标识前缀过滤 = %v, want 1 条", combined)
+	}
+	// 存储前缀(密钥 id 加冒号)不是显示值,不应命中。
+	resp = do(t, srv.Client(), http.MethodGet, srv.URL+"/console/api/traces?q=1:", "", cookie, false)
+	decode(t, resp, &combined)
+	if len(combined) != 0 {
+		t.Errorf("存储前缀过滤 = %v, want 空", combined)
 	}
 }
 
@@ -216,13 +251,13 @@ func TestAdmin_TraceDigest(t *testing.T) {
 	if len(tools) != 1 {
 		t.Fatalf("工具聚合 = %v", tools)
 	}
-	// step 行据此显示工具标签:只有发起了调用的步才会出现。
+	// step 行据此显示工具标签:工具归到生成该调用的步(step 1),不归到首次出现的 step 2。
 	byStep, _ := body["by_step"].([]any)
 	if len(byStep) != 1 {
-		t.Fatalf("by_step = %v, want 1 条(仅 step 2 发起调用)", byStep)
+		t.Fatalf("by_step = %v, want 1 条(仅 step 1 发起调用)", byStep)
 	}
 	stepRow, _ := byStep[0].(map[string]any)
-	if stepRow["seq"] != float64(2) || stepRow["calls"] != float64(1) {
+	if stepRow["seq"] != float64(1) || stepRow["calls"] != float64(1) {
 		t.Errorf("step 工具分布 = %v", stepRow)
 	}
 	if names, _ := stepRow["by_name"].(map[string]any); names["Read"] != float64(1) {
@@ -257,13 +292,21 @@ func TestAdmin_TraceStep(t *testing.T) {
 	if body["inherited"] != float64(1) {
 		t.Errorf("继承行数 = %v, want 1", body["inherited"])
 	}
-	tools, _ := body["tools"].([]any)
-	if len(tools) != 1 {
-		t.Fatalf("工具明细 = %v", tools)
+	// 工具归到生成它的 step 1,step 2 的明细为空。
+	if tools, _ := body["tools"].([]any); len(tools) != 0 {
+		t.Errorf("step 2 工具明细 = %v, want 空", tools)
 	}
-	tool, _ := tools[0].(map[string]any)
-	if tool["name"] != "Read" || tool["status"] != "ok" {
-		t.Errorf("工具明细 = %v", tool)
+
+	resp = do(t, srv.Client(), http.MethodGet, srv.URL+"/console/api/traces/"+testSessionID+"/1", "", cookie, false)
+	var firstBody traceJSON
+	decode(t, resp, &firstBody)
+	firstTools, _ := firstBody["tools"].([]any)
+	if len(firstTools) != 1 {
+		t.Fatalf("step 1 工具明细 = %v", firstTools)
+	}
+	firstTool, _ := firstTools[0].(map[string]any)
+	if firstTool["name"] != "Read" || firstTool["status"] != "ok" {
+		t.Errorf("step 1 工具明细 = %v", firstTool)
 	}
 
 	// full=1:返回全量消息(用户输入 + 工具调用)。

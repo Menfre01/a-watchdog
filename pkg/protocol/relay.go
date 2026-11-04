@@ -53,8 +53,13 @@ type usageParser interface {
 // Observer 在转发的同时旁路解析响应字节,尽力提取用量;
 // 它只读、绝不阻塞,解析失败不影响转发(对应 design.md D1 的风险隔离)。
 type Observer struct {
-	parser usageParser
+	parser    usageParser
+	body      []byte
+	truncated bool
 }
+
+// captureLimit 是响应原文副本的上限:超出后停止追加并标记截断。
+const captureLimit = 2 << 20
 
 // NewObserver 依据协议与响应内容类型创建观察器;无法识别时返回空操作观察器。
 func NewObserver(protocolName, contentType string) *Observer {
@@ -77,7 +82,21 @@ func (o *Observer) Write(p []byte) {
 	if o.parser != nil {
 		o.parser.Write(p)
 	}
+	room := captureLimit - len(o.body)
+	if room <= 0 {
+		o.truncated = true
+		return
+	}
+	if len(p) > room {
+		o.body = append(o.body, p[:room]...)
+		o.truncated = true
+		return
+	}
+	o.body = append(o.body, p...)
 }
+
+// Captured 返回响应原文副本与截断标记。
+func (o *Observer) Captured() ([]byte, bool) { return o.body, o.truncated }
 
 // Usage 返回已解析出的用量(在转发结束后调用)。
 func (o *Observer) Usage() Usage {

@@ -72,7 +72,7 @@ func run() error {
 	}
 
 	srv := &http.Server{
-		Handler:           server.New(chainHandler, logger).WithConsole(console.Handler()).Handler(),
+		Handler:           server.New(chainHandler, logger).WithConsole(console.Handler()).WithToolEvents(store).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout:       120 * time.Second,
 	}
