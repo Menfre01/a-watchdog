@@ -9,7 +9,7 @@
 - 轨迹捕捉：异步保存请求与响应原文，创建规范化快照供分析
 - 事件上报：工具与提示事件由客户端上报。工具事件用于还原调用耗时。
 
-> 接入与配置的全流程故事见 `docs/user-story.md`（C1 范围）。行为规范在 `openspec/specs/`。
+> 接入与配置的全流程故事见 `docs/user-story.md`（C1 与 C2 补充）。行为规范在 `openspec/specs/`。
 
 ## 构建
 
@@ -20,6 +20,7 @@ make generate   # 从 SQL 创建数据访问代码（已入库。改 SQL 后必�
 make build      # 构建前端，编译单二进制到 bin/awatchdog
 make test       # 全部测试
 make lint       # gofmt + golangci-lint + sqlc diff（防代码漂移）
+make coverage   # 按包输出覆盖率（目标见 AGENTS.md）
 ```
 
 ## 运行

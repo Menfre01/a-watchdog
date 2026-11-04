@@ -155,6 +155,7 @@ func (r *Recorder) insert(ctx context.Context, batch []recordItem) {
 	for i, item := range batch {
 		body, err := buildRequestBody(ids[i], item.raw)
 		if err != nil {
+			// COVERAGE-EXEMPT: trace.Compress 只写 bytes.Buffer,错误分支不可达。
 			r.logger.Error("轨迹压缩失败", "err", err)
 			continue
 		}
@@ -169,6 +170,7 @@ func (r *Recorder) insert(ctx context.Context, batch []recordItem) {
 		if len(item.resp) > 0 {
 			compressed, err := trace.Compress(item.resp)
 			if err != nil {
+				// COVERAGE-EXEMPT: trace.Compress 只写 bytes.Buffer,错误分支不可达。
 				r.logger.Error("响应压缩失败", "err", err)
 				continue
 			}
@@ -208,6 +210,7 @@ func (r *Recorder) buildSnapshot(ctx context.Context, item recordItem) (*config.
 	}
 	compressed, err := trace.Compress(serialized.NDJSON)
 	if err != nil {
+		// COVERAGE-EXEMPT: trace.Compress 只写 bytes.Buffer,错误分支不可达。
 		return nil, err
 	}
 	return &config.TraceSnapshot{
@@ -348,6 +351,7 @@ func rawRequestOf(ctx *chain.Context) rawRequest {
 func buildRequestBody(requestID int64, raw rawRequest) (db.InsertRequestBodyParams, error) {
 	compressed, err := trace.Compress(raw.body)
 	if err != nil {
+		// COVERAGE-EXEMPT: trace.Compress 只写 bytes.Buffer,错误分支不可达。
 		return db.InsertRequestBodyParams{}, err
 	}
 	return db.InsertRequestBodyParams{

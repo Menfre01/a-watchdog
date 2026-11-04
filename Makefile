@@ -10,7 +10,7 @@ STE_FILES ?=
 STE_BASELINE ?= 0
 BINARY    := bin/awatchdog
 
-.PHONY: generate build run test lint lint-text smoke clean
+.PHONY: generate build run test lint lint-text smoke clean coverage
 
 # generate: 以 sqlc 从迁移与查询 SQL 生成类型安全代码(生成产物入库,勿手改)
 generate:
@@ -38,6 +38,10 @@ DATA_DIR ?= ./.awatchdog
 run:
 	@mkdir -p $(DATA_DIR)
 	$(GO) run ./cmd/awatchdog --data-dir $(DATA_DIR) --admin-password $(ADMIN_PASSWORD) $(ARGS)
+
+# coverage: 按包输出覆盖率与 COVERAGE-EXEMPT 标记数量
+coverage:
+	@bash scripts/coverage.sh
 
 # smoke:轨迹视图原型冒烟 —— 断言形态基准渲染出新形态,并与前端图例文案比对
 smoke:

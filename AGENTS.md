@@ -119,7 +119,10 @@ openspec/
 
 ## 测试
 
-- **TDD**：Red → Green → Refactor;测试覆盖率 ≥97%(排除 OS / 文件系统不可模拟路径)
+- **TDD**：Red → Green → Refactor。
+- **覆盖率**：按包统计，`pkg/*` 每包语句覆盖率 ≥97%。`cmd/awatchdog` 是入口装配包，不计入该门槛；`main` / `run` 不要求单测。
+- **高成本与不可达豁免**：真实进程、信号、监听、网络、时钟、文件系统等难以单测的函数，或结构上不可达的防御分支，在函数或分支上方标 `// COVERAGE-EXEMPT: <理由>`。豁免只用于测试成本明显高于收益的路径，或确实无法构造的不可达分支，不得掩盖普通分支。`make coverage` 汇总各包覆盖率与豁免标记。
+- **覆盖率检查**：新增或修改代码先补测试；`make coverage` 用可写 GOCACHE 运行。
 - 测试命名 `TestXxx`,与实现同包;优先表驱动测试
 - **Bug 修复必须附回归防护**：
   - 可测：编写 `TestRegression_<简述>`,断言命中根因
@@ -140,6 +143,7 @@ openspec/
 | 编译 | `make build` | | 单包 / 单文件 | `go test ./pkg/<name>/ -run TestXxx` |
 | 运行 | `make run` | | 多包 / 跨包 | `make test` |
 | 静态检查 | `make lint` | | 集成测试 | `make test-integration` |
+| 覆盖率 | `make coverage` | | | |
 | 文字检查 | `make lint-text` | | | |
 | 原型冒烟 | `make smoke` | | | |
 | 清理 | `make clean` | | | |

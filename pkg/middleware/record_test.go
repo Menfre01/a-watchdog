@@ -26,6 +26,7 @@ type fakeStore struct {
 	fail      bool
 	failTrace bool // SaveTrace 失败(验证轨迹失败不影响记录)
 	failSeq   bool // NextSnapshotSeq 失败(验证快照失败只落原始层)
+	failResp  bool // InsertResponseBody 失败(验证响应失败不影响请求)
 	shortIDs  bool // 返回的 id 数少于入参数(验证放弃本批轨迹的守卫)
 	attempts  atomic.Int64
 	mu        sync.Mutex
@@ -84,6 +85,9 @@ func (f *fakeStore) SaveTrace(_ context.Context, body db.InsertRequestBodyParams
 
 // InsertResponseBody 实现 InsertStore:记录响应原文,供断言使用。
 func (f *fakeStore) InsertResponseBody(_ context.Context, arg db.InsertResponseBodyParams) error {
+	if f.failResp {
+		return errors.New("response boom")
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.responses = append(f.responses, arg)
