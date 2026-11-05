@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { api, type Model, type Provider } from '../api'
 import AppDialog from '../components/AppDialog.vue'
 import AppIcon from '../components/AppIcon.vue'
+import ProviderIcon from '../components/ProviderIcon.vue'
 import { pushToast } from '../toast'
 
 const rows = ref<Model[]>([])
 const providers = ref<Provider[]>([])
+const providerByID = computed(() => new Map(providers.value.map((p) => [p.id, p])))
 const error = ref('')
 const formError = ref('')
 const dialogOpen = ref(false)
@@ -22,6 +24,10 @@ const form = reactive({
 
 function msg(e: unknown): string {
   return e instanceof Error ? e.message : String(e)
+}
+
+function providerOf(id: number): Provider | undefined {
+  return providerByID.value.get(id)
 }
 
 async function load(): Promise<void> {
@@ -106,8 +112,8 @@ onMounted(load)
   <section class="island">
     <header class="island-head">
       <h2>模型目录</h2>
-      <button ref="createBtn" class="primary" type="button" @click="openCreate">
-        <AppIcon name="plus" />新建条目
+      <button ref="createBtn" class="text-action" type="button" @click="openCreate">
+        <AppIcon name="plus" />新建
       </button>
     </header>
 
@@ -117,6 +123,7 @@ onMounted(load)
       <table>
         <thead>
           <tr>
+            <th scope="col" class="type-col"><span class="sr-only">Provider</span></th>
             <th scope="col">可见名</th>
             <th scope="col">状态</th>
             <th scope="col">操作</th>
@@ -124,6 +131,9 @@ onMounted(load)
         </thead>
         <tbody>
           <tr v-for="m in rows" :key="m.id">
+            <td class="type-col" :title="providerOf(m.provider_id)?.name">
+              <ProviderIcon :name="providerOf(m.provider_id)?.name ?? ''" :protocol="providerOf(m.provider_id)?.protocol" />
+            </td>
             <td class="mono truncate">{{ m.name }}</td>
             <td>
               <span class="badge" :class="m.enabled ? 'on' : 'off'">{{ m.enabled ? '启用' : '停用' }}</span>
@@ -138,7 +148,12 @@ onMounted(load)
             </td>
           </tr>
           <tr v-if="rows.length === 0">
-            <td colspan="3" class="muted">暂无模型条目。先新建接入,再添加条目。</td>
+            <td colspan="4" class="empty-cell">
+              <button class="empty-action" type="button" @click="openCreate">
+                <AppIcon name="plus" />添加第一个模型
+              </button>
+              <p class="empty-hint">先创建接入，再添加模型。</p>
+            </td>
           </tr>
         </tbody>
       </table>

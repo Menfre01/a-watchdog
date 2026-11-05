@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { api, type ClientKey, type TraceSession } from '../api'
 import AppIcon from '../components/AppIcon.vue'
+import AgentIcon from '../components/AgentIcon.vue'
 import { formatDateTime, formatSpan } from '../format'
 import { buildHash, listHash, parseHash, replaceHash, subscribe, type ObservabilityRoute, type Panel } from '../route'
 import { splitSessionID } from '../session'
@@ -160,7 +161,7 @@ onBeforeUnmount(() => {
 
 <template>
   <h1>可观测</h1>
-  <MetricsIsland v-if="!selectedID" />
+  <MetricsIsland v-if="!selectedID" class="metrics-island" />
   <p v-if="error" class="error" role="alert">{{ error }}</p>
 
   <!-- 列表保活:隐藏时用 inert 断掉键盘与读屏访问 -->
@@ -194,17 +195,17 @@ onBeforeUnmount(() => {
         <table class="table-wide">
           <thead>
             <tr>
-              <th scope="col">session</th>
+              <th scope="col" class="session-head">session</th>
               <th scope="col">Agent</th>
-              <th scope="col">首见</th>
-              <th scope="col">末见</th>
-              <th scope="col">steps</th>
+              <th scope="col" class="num-head">首见</th>
+              <th scope="col" class="num-head">末见</th>
+              <th scope="col" class="num-head">steps</th>
               <th scope="col">in / out / cache</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="s in sessions" :key="s.session_id" class="row-click" @click="openSession(s)">
-              <td class="mono" :title="s.session_id">
+              <td class="mono session-cell" :title="s.session_id">
                 <a
                   class="session-link"
                   :href="buildHash(s.session_id, 'trace')"
@@ -214,7 +215,11 @@ onBeforeUnmount(() => {
                   {{ shortID(s.session_id) }}
                 </a>
               </td>
-              <td><span class="tag" :class="agentClass(s.agent)">{{ agentLabel(s.agent) }}</span></td>
+              <td>
+                <span class="agent-label" :class="agentClass(s.agent)">
+                  <AgentIcon :agent="s.agent" />{{ agentLabel(s.agent) }}
+                </span>
+              </td>
               <td class="small num">{{ formatDateTime(s.first_seen) }}</td>
               <td class="small num">{{ formatDateTime(s.last_seen) }}</td>
               <td class="num">{{ s.steps }}</td>
@@ -248,8 +253,13 @@ onBeforeUnmount(() => {
           <div class="head-main">
             <div class="mono strong" :title="session.session_id">
               {{ rawID(session.session_id) }}
-              <span class="tag" :class="agentClass(session.agent)">{{ agentLabel(session.agent) }}</span>
-              <span v-if="keyName(session.session_id)" class="tag">{{ keyName(session.session_id) }}</span>
+              <span class="agent-label" :class="agentClass(session.agent)">
+                <AgentIcon :agent="session.agent" />{{ agentLabel(session.agent) }}
+              </span>
+              <template v-if="keyName(session.session_id)">
+                <span class="meta-sep" aria-hidden="true">·</span>
+                <span class="key-label"><AppIcon name="key" :size="13" />{{ keyName(session.session_id) }}</span>
+              </template>
             </div>
             <div class="muted small num">
               {{ formatDateTime(session.first_seen) }} → {{ formatDateTime(session.last_seen) }}
@@ -272,11 +282,15 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.metrics-island {
+  margin-bottom: var(--sp-4);
+}
+
 .filters {
   display: flex;
   gap: 10px;
   align-items: flex-end;
-  margin-bottom: var(--sp-3);
+  margin-bottom: var(--sp-4);
 }
 
 .grow {
@@ -302,6 +316,69 @@ onBeforeUnmount(() => {
 
 .row-click:hover {
   background: var(--surface-2);
+}
+
+/* 第一列表头与 ID 共用等宽字体与字号,避免字形差异看起来错位 */
+.session-head,
+.session-cell {
+  font-family: var(--mono);
+  font-size: var(--fs-13);
+}
+
+/* 数值列表头与右对齐的数值同向,避免表头在左、数字在右 */
+th.num-head {
+  text-align: right;
+}
+
+/* Agent 标签降为元数据:图标负责识别,文字保持中性 */
+.agent-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--sans);
+  font-size: var(--fs-12);
+  font-weight: 400;
+  line-height: 1;
+  color: var(--muted);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.agent-label.agent-claude {
+  --agent-color: var(--agent-claude);
+}
+
+.agent-label.agent-codex {
+  --agent-color: var(--agent-codex);
+}
+
+.agent-label.agent-dsh {
+  --agent-color: var(--agent-dsh);
+}
+
+.agent-label :deep(.agent-icon) {
+  color: var(--agent-color, var(--muted));
+}
+
+.meta-sep {
+  display: inline-block;
+  margin: 0 2px;
+  line-height: 1;
+  color: var(--muted);
+  vertical-align: middle;
+}
+
+.key-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--sans);
+  font-size: var(--fs-12);
+  font-weight: 400;
+  line-height: 1;
+  color: var(--muted);
+  vertical-align: middle;
+  white-space: nowrap;
 }
 
 .session-link {

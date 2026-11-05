@@ -138,6 +138,17 @@ td {
   vertical-align: middle;
 }
 
+/* 类型列只放图标:窄列,颜色随元数据 */
+.type-col {
+  width: 30px;
+  padding-right: 0;
+  color: var(--muted);
+}
+
+.type-col svg {
+  display: block;
+}
+
 th {
   color: var(--muted);
   font-weight: 500;
@@ -189,6 +200,61 @@ button.ghost {
   border-radius: var(--r-md);
   padding: 5px 10px;
   font-size: var(--fs-13);
+}
+
+/* 孤岛头部的主操作:接入保留实心但收紧,其余区改用文字动作 */
+.island-head .primary {
+  padding: 6px 12px;
+  font-size: var(--fs-13);
+}
+
+button.text-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--accent);
+  font-size: var(--fs-13);
+}
+
+button.text-action:hover {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+/* 空表的主操作:整行虚线按钮,有数据时不出现 */
+td.empty-cell {
+  padding: 0;
+}
+
+button.empty-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 12px;
+  border: 1px dashed var(--line);
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--fs-13);
+}
+
+button.empty-action:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.empty-hint {
+  margin: 6px 0 0;
+  padding: 0 12px 8px;
+  color: var(--muted);
+  font-size: var(--fs-12);
 }
 
 /* 一行内的多个操作按钮:间距由容器给,避免按钮自带外边距导致疏密不一 */
@@ -504,26 +570,6 @@ label.check-row input[type='checkbox'] {
 .icon-btn.danger:hover {
   background: var(--danger-soft);
 }
-
-/* Agent 标签:四类各有一个色相,扫描时不必读文字也能分辨 */
-.tag.agent-claude {
-  border-color: var(--agent-claude);
-  background: var(--agent-claude-soft);
-  color: var(--agent-claude);
-}
-
-.tag.agent-codex {
-  border-color: var(--agent-codex);
-  background: var(--agent-codex-soft);
-  color: var(--agent-codex);
-}
-
-.tag.agent-dsh {
-  border-color: var(--agent-dsh);
-  background: var(--agent-dsh-soft);
-  color: var(--agent-dsh);
-}
-
 
 /* ---- 元数据标记:全站唯一的时间、大小、状态、名称格式 ---- */
 .num {

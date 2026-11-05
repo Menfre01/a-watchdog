@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { api, type TraceDigest, type TraceToolCallDuration } from '../api'
+import ToolIcon from '../components/ToolIcon.vue'
 
 const props = defineProps<{ sessionId: string }>()
 
@@ -157,6 +158,7 @@ function successRate(tool: { calls: number; ok: number }): string {
       <table class="table-wide">
         <thead>
           <tr>
+            <th scope="col" class="type-col"><span class="sr-only">类型</span></th>
             <th scope="col">工具</th>
             <th scope="col">去向</th>
             <th scope="col">调用</th>
@@ -169,6 +171,7 @@ function successRate(tool: { calls: number; ok: number }): string {
         </thead>
         <tbody>
           <tr v-for="tool in rows" :key="tool.name">
+            <td class="type-col"><ToolIcon :name="tool.name" /></td>
             <td class="name truncate">{{ tool.name }}</td>
             <td><span class="tag">{{ sourceLabel(tool.name) }}</span></td>
             <td class="num">{{ tool.calls }}</td>

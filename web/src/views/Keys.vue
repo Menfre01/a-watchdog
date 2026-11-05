@@ -119,7 +119,7 @@ onMounted(load)
   <section class="island">
     <header class="island-head">
       <h2>客户端密钥</h2>
-      <button class="primary" type="button" @click="openCreate"><AppIcon name="plus" />新建密钥</button>
+      <button class="text-action" type="button" @click="openCreate"><AppIcon name="plus" />新建</button>
     </header>
 
     <p v-if="error" class="error" role="alert">{{ error }}</p>
@@ -176,7 +176,12 @@ onMounted(load)
             </td>
           </tr>
           <tr v-if="rows.length === 0">
-            <td colspan="3" class="muted">暂无密钥。新建一个即可接入客户端。</td>
+            <td colspan="3" class="empty-cell">
+              <button class="empty-action" type="button" @click="openCreate">
+                <AppIcon name="plus" />添加第一个密钥
+              </button>
+              <p class="empty-hint">新建密钥后即可接入客户端。</p>
+            </td>
           </tr>
         </tbody>
       </table>

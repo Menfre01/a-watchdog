@@ -14,6 +14,7 @@ import {
 } from '../api'
 import { fmtK, fmtMs, formatFullTime } from '../format'
 import MarkdownView from '../components/MarkdownView.vue'
+import ToolIcon from '../components/ToolIcon.vue'
 import {
   AXIS_NOTE,
   CHAIN_NOTE,
@@ -1378,6 +1379,7 @@ function inlineHTML(parts: InlineParts | null | undefined, row: TraceDiffRow): s
                     @click.stop="toggleTool(toolKey(step.seq, i))"
                   >
                     <span class="caret" aria-hidden="true">{{ isToolOpen(toolKey(step.seq, i)) ? '▾' : '▸' }}</span>
+                    <ToolIcon :name="tool.name" />
                     <span class="name">{{ tool.name }}</span>
                     <span class="blk mono">{{ toolArgs(tool) }}</span>
                     <span class="spacer"></span>
@@ -1624,6 +1626,8 @@ function inlineHTML(parts: InlineParts | null | undefined, row: TraceDiffRow): s
 .stat .v {
   font-size: 16px;
   font-weight: 600;
+  /* 统计值统一行高:协议用更小字号时,上下边距与其他字段保持一致 */
+  line-height: 20px;
 }
 /* 推断值用虚线下划线标出:口径随值走,不靠颜色区分 */
 .stat .v.infer {

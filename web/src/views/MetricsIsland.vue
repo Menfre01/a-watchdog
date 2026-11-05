@@ -74,7 +74,7 @@ const cards = computed(() => {
         <span v-if="c.sub" class="kpi-sub">{{ c.sub }}</span>
       </div>
     </div>
-    <p class="hint">分位数按窗口内全部请求计时;少于 20 个样本时 p95 接近最大值,参考意义有限。</p>
+    <p v-if="data && data.count < 20" class="hint">窗口内请求少于 20 个。p95 接近最大值，参考意义有限。</p>
   </section>
 </template>
 
@@ -82,7 +82,7 @@ const cards = computed(() => {
 .kpis {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 12px;
+  gap: 16px;
 }
 
 .kpi {

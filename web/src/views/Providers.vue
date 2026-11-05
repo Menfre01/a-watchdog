@@ -3,6 +3,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { api, type ProbeResult, type Provider } from '../api'
 import AppDialog from '../components/AppDialog.vue'
 import AppIcon from '../components/AppIcon.vue'
+import ProviderIcon from '../components/ProviderIcon.vue'
 import { pushToast } from '../toast'
 
 const rows = ref<Provider[]>([])
@@ -129,6 +130,7 @@ onMounted(load)
       <table class="table-wide">
         <thead>
           <tr>
+            <th scope="col" class="type-col"><span class="sr-only">类型</span></th>
             <th scope="col">名称</th>
             <th scope="col">协议</th>
             <th scope="col">Base URL</th>
@@ -139,6 +141,9 @@ onMounted(load)
         </thead>
         <tbody>
           <tr v-for="p in rows" :key="p.id">
+            <td class="type-col" :title="p.protocol">
+              <ProviderIcon :name="p.name" :protocol="p.protocol" />
+            </td>
             <td>{{ p.name }}</td>
             <td class="mono small">{{ p.protocol }}</td>
             <td class="truncate" :title="p.base_url">{{ p.base_url }}</td>
@@ -159,7 +164,11 @@ onMounted(load)
             </td>
           </tr>
           <tr v-if="rows.length === 0">
-            <td colspan="6" class="muted">暂无接入。点「新建接入」添加第一个。</td>
+            <td colspan="7" class="empty-cell">
+              <button class="empty-action" type="button" @click="openCreate">
+                <AppIcon name="plus" />添加第一个接入
+              </button>
+            </td>
           </tr>
         </tbody>
       </table>
