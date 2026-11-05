@@ -349,10 +349,16 @@ export const api = {
 export interface RequestMetrics {
   count: number
   errors: number
+  errors_4xx: number
+  errors_5xx: number
   error_rate: number
+  error_kinds: { kind: string; count: number }[]
   p50_ms: number
   p95_ms: number
   p99_ms: number
+  success_count: number
+  success_p95_ms: number
+  success_p99_ms: number
   usage_in: number
   usage_out: number
   usage_cache: number

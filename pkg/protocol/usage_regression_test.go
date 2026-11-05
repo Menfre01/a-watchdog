@@ -7,6 +7,7 @@ func checkInt64(t *testing.T, label string, got *int64, want int64) {
 	t.Helper()
 	if got == nil {
 		t.Fatalf("%s = nil, want %d", label, want)
+		return
 	}
 	if *got != want {
 		t.Fatalf("%s = %d, want %d", label, *got, want)

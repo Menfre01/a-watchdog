@@ -25,11 +25,72 @@ SELECT * FROM requests ORDER BY id DESC LIMIT ?;
 SELECT
     COUNT(*) AS count,
     CAST(COALESCE(SUM(CASE WHEN status_code >= 400 OR error_kind <> '' THEN 1 ELSE 0 END), 0) AS INTEGER) AS errors,
+    CAST(COALESCE(SUM(CASE WHEN status_code BETWEEN 400 AND 499 THEN 1 ELSE 0 END), 0) AS INTEGER) AS errors_4xx,
+    CAST(COALESCE(SUM(CASE WHEN status_code >= 500 THEN 1 ELSE 0 END), 0) AS INTEGER) AS errors_5xx,
     CAST(COALESCE(SUM(usage_in), 0) AS INTEGER) AS usage_in,
     CAST(COALESCE(SUM(usage_out), 0) AS INTEGER) AS usage_out,
     CAST(COALESCE(SUM(usage_cache), 0) AS INTEGER) AS usage_cache
-FROM requests
-WHERE ts >= ?;
+FROM requests r
+WHERE r.ts >= sqlc.arg('ts')
+  AND (sqlc.narg('key_id') IS NULL OR r.client_key_id = sqlc.narg('key_id'))
+  AND (
+    sqlc.narg('session_prefix') IS NULL
+    OR EXISTS (
+      SELECT 1
+      FROM snapshots s
+      WHERE s.request_id = r.id
+        AND substr(s.session_id, instr(s.session_id, ':') + 1) LIKE sqlc.narg('session_prefix') || '%'
+    )
+  );
 
 -- name: ListRequestLatenciesSince :many
-SELECT latency_ms FROM requests WHERE ts >= ? ORDER BY latency_ms;
+SELECT r.latency_ms
+FROM requests r
+WHERE r.ts >= sqlc.arg('ts')
+  AND (sqlc.narg('key_id') IS NULL OR r.client_key_id = sqlc.narg('key_id'))
+  AND (
+    sqlc.narg('session_prefix') IS NULL
+    OR EXISTS (
+      SELECT 1
+      FROM snapshots s
+      WHERE s.request_id = r.id
+        AND substr(s.session_id, instr(s.session_id, ':') + 1) LIKE sqlc.narg('session_prefix') || '%'
+    )
+  )
+ORDER BY r.latency_ms;
+
+-- name: ListRequestErrorKindsSince :many
+SELECT COALESCE(r.error_kind, '') AS kind, COUNT(*) AS count
+FROM requests r
+WHERE r.ts >= sqlc.arg('ts')
+  AND (sqlc.narg('key_id') IS NULL OR r.client_key_id = sqlc.narg('key_id'))
+  AND (
+    sqlc.narg('session_prefix') IS NULL
+    OR EXISTS (
+      SELECT 1
+      FROM snapshots s
+      WHERE s.request_id = r.id
+        AND substr(s.session_id, instr(s.session_id, ':') + 1) LIKE sqlc.narg('session_prefix') || '%'
+    )
+  )
+  AND (r.status_code >= 400 OR r.error_kind <> '')
+GROUP BY COALESCE(r.error_kind, '')
+ORDER BY count DESC, kind;
+
+-- name: ListSuccessfulRequestLatenciesSince :many
+SELECT r.latency_ms
+FROM requests r
+WHERE r.ts >= sqlc.arg('ts')
+  AND (sqlc.narg('key_id') IS NULL OR r.client_key_id = sqlc.narg('key_id'))
+  AND (
+    sqlc.narg('session_prefix') IS NULL
+    OR EXISTS (
+      SELECT 1
+      FROM snapshots s
+      WHERE s.request_id = r.id
+        AND substr(s.session_id, instr(s.session_id, ':') + 1) LIKE sqlc.narg('session_prefix') || '%'
+    )
+  )
+  AND r.status_code < 400
+  AND (r.error_kind IS NULL OR r.error_kind = '')
+ORDER BY r.latency_ms;

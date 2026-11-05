@@ -44,6 +44,7 @@ func TestRoute_Hit(t *testing.T) {
 	route := ctx.Route
 	if route == nil {
 		t.Fatalf("ctx.Route = nil")
+		return
 	}
 	if route.ClientModel != "claude-sonnet-4-5" || route.ProviderID != providerID ||
 		route.ProviderProtocol != "anthropic-messages" || route.BaseURL != "https://api.anthropic.com" ||

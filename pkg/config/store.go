@@ -300,8 +300,13 @@ func (s *Store) ResponseBody(ctx context.Context, requestID int64) (db.ResponseB
 // ---- request metrics ----
 
 // AggregateRequestsSince 汇总某时刻之后的请求数、错误数与用量。
-func (s *Store) AggregateRequestsSince(ctx context.Context, since string) (db.AggregateRequestsSinceRow, error) {
-	row, err := s.q.AggregateRequestsSince(ctx, since)
+// keyID 为 nil 表示全部密钥。sessionPrefix 为空表示不按 session 过滤。
+func (s *Store) AggregateRequestsSince(ctx context.Context, since string, keyID *int64, sessionPrefix string) (db.AggregateRequestsSinceRow, error) {
+	row, err := s.q.AggregateRequestsSince(ctx, db.AggregateRequestsSinceParams{
+		Ts:            since,
+		KeyID:         nullableInt64(keyID),
+		SessionPrefix: nullableString(sessionPrefix),
+	})
 	if err != nil {
 		return db.AggregateRequestsSinceRow{}, fmt.Errorf("config: aggregate requests: %w", err)
 	}
@@ -309,10 +314,43 @@ func (s *Store) AggregateRequestsSince(ctx context.Context, since string) (db.Ag
 }
 
 // ListRequestLatenciesSince 返回某时刻之后的全部延迟,升序,供分位数计算。
-func (s *Store) ListRequestLatenciesSince(ctx context.Context, since string) ([]int64, error) {
-	rows, err := s.q.ListRequestLatenciesSince(ctx, since)
+// keyID 为 nil 表示全部密钥。sessionPrefix 为空表示不按 session 过滤。
+func (s *Store) ListRequestLatenciesSince(ctx context.Context, since string, keyID *int64, sessionPrefix string) ([]int64, error) {
+	rows, err := s.q.ListRequestLatenciesSince(ctx, db.ListRequestLatenciesSinceParams{
+		Ts:            since,
+		KeyID:         nullableInt64(keyID),
+		SessionPrefix: nullableString(sessionPrefix),
+	})
 	if err != nil {
 		return nil, fmt.Errorf("config: list request latencies: %w", err)
+	}
+	return rows, nil
+}
+
+// ListRequestErrorKindsSince 按 error_kind 汇总错误请求;空原因归入空串。
+// keyID 为 nil 表示全部密钥。sessionPrefix 为空表示不按 session 过滤。
+func (s *Store) ListRequestErrorKindsSince(ctx context.Context, since string, keyID *int64, sessionPrefix string) ([]db.ListRequestErrorKindsSinceRow, error) {
+	rows, err := s.q.ListRequestErrorKindsSince(ctx, db.ListRequestErrorKindsSinceParams{
+		Ts:            since,
+		KeyID:         nullableInt64(keyID),
+		SessionPrefix: nullableString(sessionPrefix),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("config: list request error kinds: %w", err)
+	}
+	return rows, nil
+}
+
+// ListSuccessfulRequestLatenciesSince 返回成功请求的延迟,升序,供分位数计算。
+// 成功请求指状态码小于 400 且没有 error_kind 的请求。
+func (s *Store) ListSuccessfulRequestLatenciesSince(ctx context.Context, since string, keyID *int64, sessionPrefix string) ([]int64, error) {
+	rows, err := s.q.ListSuccessfulRequestLatenciesSince(ctx, db.ListSuccessfulRequestLatenciesSinceParams{
+		Ts:            since,
+		KeyID:         nullableInt64(keyID),
+		SessionPrefix: nullableString(sessionPrefix),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("config: list successful request latencies: %w", err)
 	}
 	return rows, nil
 }
@@ -580,4 +618,12 @@ func nullableString(s string) any {
 		return nil
 	}
 	return s
+}
+
+// nullableInt64 把 nil 指针转成 SQL NULL:过滤参数里 nil 表示「不过滤」。
+func nullableInt64(v *int64) any {
+	if v == nil {
+		return nil
+	}
+	return *v
 }

@@ -1,7 +1,9 @@
 package admin
 
 import (
+	"errors"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -35,16 +37,44 @@ func percentile(sorted []int64, p float64) int64 {
 	return sorted[index]
 }
 
+// metricsKeyID 解析可选的 key_id;空值表示全部密钥。
+func metricsKeyID(raw string) (*int64, error) {
+	if raw == "" {
+		return nil, nil
+	}
+	id, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || id <= 0 {
+		return nil, errors.New("invalid key_id")
+	}
+	return &id, nil
+}
+
 // handleRequestMetrics 返回请求侧的汇总指标。
 func (a *Admin) handleRequestMetrics(w http.ResponseWriter, r *http.Request) {
 	window := r.URL.Query().Get("window")
 	since := metricsWindow(window)
-	agg, err := a.store.AggregateRequestsSince(r.Context(), since)
+	keyID, err := metricsKeyID(r.URL.Query().Get("key_id"))
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	sessionPrefix := r.URL.Query().Get("q")
+	agg, err := a.store.AggregateRequestsSince(r.Context(), since, keyID, sessionPrefix)
 	if err != nil {
 		a.storeErr(w, err)
 		return
 	}
-	latencies, err := a.store.ListRequestLatenciesSince(r.Context(), since)
+	latencies, err := a.store.ListRequestLatenciesSince(r.Context(), since, keyID, sessionPrefix)
+	if err != nil {
+		a.storeErr(w, err)
+		return
+	}
+	errorKinds, err := a.store.ListRequestErrorKindsSince(r.Context(), since, keyID, sessionPrefix)
+	if err != nil {
+		a.storeErr(w, err)
+		return
+	}
+	successLatencies, err := a.store.ListSuccessfulRequestLatenciesSince(r.Context(), since, keyID, sessionPrefix)
 	if err != nil {
 		a.storeErr(w, err)
 		return
@@ -58,16 +88,26 @@ func (a *Admin) handleRequestMetrics(w http.ResponseWriter, r *http.Request) {
 	if agg.UsageIn+agg.UsageCache > 0 {
 		cacheRate = float64(agg.UsageCache) / float64(agg.UsageIn+agg.UsageCache)
 	}
+	kinds := make([]map[string]any, 0, len(errorKinds))
+	for _, row := range errorKinds {
+		kinds = append(kinds, map[string]any{"kind": row.Kind, "count": row.Count})
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"count":       agg.Count,
-		"errors":      agg.Errors,
-		"error_rate":  errorRate,
-		"p50_ms":      percentile(latencies, 0.50),
-		"p95_ms":      percentile(latencies, 0.95),
-		"p99_ms":      percentile(latencies, 0.99),
-		"usage_in":    agg.UsageIn,
-		"usage_out":   agg.UsageOut,
-		"usage_cache": agg.UsageCache,
-		"cache_rate":  cacheRate,
+		"count":          agg.Count,
+		"errors":         agg.Errors,
+		"errors_4xx":     agg.Errors4xx,
+		"errors_5xx":     agg.Errors5xx,
+		"error_rate":     errorRate,
+		"error_kinds":    kinds,
+		"p50_ms":         percentile(latencies, 0.50),
+		"p95_ms":         percentile(latencies, 0.95),
+		"p99_ms":         percentile(latencies, 0.99),
+		"success_count":  len(successLatencies),
+		"success_p95_ms": percentile(successLatencies, 0.95),
+		"success_p99_ms": percentile(successLatencies, 0.99),
+		"usage_in":       agg.UsageIn,
+		"usage_out":      agg.UsageOut,
+		"usage_cache":    agg.UsageCache,
+		"cache_rate":     cacheRate,
 	})
 }

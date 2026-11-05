@@ -16,7 +16,21 @@ const loading = ref(true)
 const error = ref('')
 const query = ref('')
 const keyFilter = ref('')
+const defaultRange = '24h'
+const rangeFilter = ref(defaultRange)
+const appliedRange = ref(defaultRange)
+const appliedKey = ref('')
+const appliedQuery = ref('')
+const appliedFrom = ref('')
+const appliedRevision = ref(0)
 const notFound = ref(false)
+
+const ranges = [
+  { value: '1h', label: '1 小时', hours: 1 },
+  { value: '24h', label: '24 小时', hours: 24 },
+  { value: '7d', label: '7 天', hours: 168 },
+  { value: 'all', label: '全部', hours: 0 },
+]
 
 // route 是唯一导航状态:selected 与 panel 都由它派生,组件不再自己记。
 const route = ref<ObservabilityRoute | null>(parseHash(location.hash))
@@ -27,17 +41,48 @@ const panel = computed<Panel>(() => route.value?.panel ?? 'trace')
 // 列表保活需要的两个锚点:进入前的滚动位置与触发行。
 let listScroll = 0
 let lastFocusID = ''
+let queryTimer: number | null = null
 let unsubscribe: (() => void) | null = null
 const detailTitle = ref<HTMLElement | null>(null)
+
+// fromFor 把筛选档位换成列表接口的起始时间;全部返回空串。
+function fromFor(range: string): string {
+  const item = ranges.find((r) => r.value === range)
+  if (!item || !item.hours) return ''
+  return new Date(Date.now() - item.hours * 3600_000).toISOString()
+}
+
+// applyFilters 只应用输入值;指标与列表由已应用值驱动。
+function applyFilters(): void {
+  if (queryTimer !== null) {
+    clearTimeout(queryTimer)
+    queryTimer = null
+  }
+  appliedRange.value = rangeFilter.value
+  appliedKey.value = keyFilter.value
+  appliedQuery.value = query.value.trim()
+  appliedFrom.value = fromFor(rangeFilter.value)
+  appliedRevision.value += 1
+  void load()
+}
+
+// scheduleFilters 让 session 前缀在停止输入后自动应用;时间与 key 直接调用 applyFilters。
+function scheduleFilters(): void {
+  if (queryTimer !== null) clearTimeout(queryTimer)
+  queryTimer = window.setTimeout(() => {
+    queryTimer = null
+    applyFilters()
+  }, 300)
+}
 
 async function load(): Promise<void> {
   loading.value = true
   error.value = ''
   try {
     const params = new URLSearchParams()
-    const q = query.value.trim()
-    if (q) params.set('q', q)
-    if (keyFilter.value) params.set('key_id', keyFilter.value)
+    if (appliedQuery.value) params.set('q', appliedQuery.value)
+    if (appliedKey.value) params.set('key_id', appliedKey.value)
+    if (appliedFrom.value) params.set('from', appliedFrom.value)
     const suffix = params.toString()
     sessions.value = await api.get<TraceSession[]>(suffix ? `/console/api/traces?${suffix}` : '/console/api/traces')
   } catch (e) {
@@ -123,6 +168,11 @@ function fmtK(n: number): string {
   return String(n)
 }
 
+watch(query, (value) => {
+  if (value.trim() === appliedQuery.value) return
+  scheduleFilters()
+})
+
 watch(selectedID, async (id, prev) => {
   if (id === prev) return
   if (id) {
@@ -145,6 +195,7 @@ onMounted(async () => {
   } catch {
     // 密钥列表取不到时只影响筛选选项,不影响会话列表。
   }
+  appliedFrom.value = fromFor(rangeFilter.value)
   await load()
   // 深链首屏:地址里已带会话时,补齐摘要并聚焦标题。
   if (selectedID.value) {
@@ -155,38 +206,52 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  if (queryTimer !== null) clearTimeout(queryTimer)
   unsubscribe?.()
 })
 </script>
 
 <template>
   <h1>可观测</h1>
-  <MetricsIsland v-if="!selectedID" class="metrics-island" />
+  <div v-if="!selectedID" class="filters">
+    <label class="field time-filter">
+      时间范围
+      <select v-model="rangeFilter" name="trace-range" @change="applyFilters">
+        <option v-for="r in ranges" :key="r.value" :value="r.value">{{ r.label }}</option>
+      </select>
+    </label>
+    <label class="field key-filter">
+      密钥
+      <select v-model="keyFilter" name="trace-key" @change="applyFilters">
+        <option value="">全部密钥</option>
+        <option v-for="k in keys" :key="k.id" :value="String(k.id)">{{ k.name }}</option>
+      </select>
+    </label>
+    <label class="field grow">
+      session 前缀
+      <input
+        v-model="query"
+        name="trace-query"
+        type="text"
+        autocomplete="off"
+        spellcheck="false"
+        placeholder="输入后自动筛选"
+        @keyup.enter="applyFilters"
+      />
+    </label>
+  </div>
+  <MetricsIsland
+    v-if="!selectedID"
+    class="metrics-island"
+    :range="appliedRange"
+    :key-id="appliedKey"
+    :session-prefix="appliedQuery"
+    :revision="appliedRevision"
+  />
   <p v-if="error" class="error" role="alert">{{ error }}</p>
 
   <!-- 列表保活:隐藏时用 inert 断掉键盘与读屏访问 -->
   <div v-show="!selectedID" :inert="selectedID !== null">
-    <div class="filters">
-      <label class="field key-filter">
-        密钥
-        <select v-model="keyFilter" name="trace-key" @change="load">
-          <option value="">全部密钥</option>
-          <option v-for="k in keys" :key="k.id" :value="String(k.id)">{{ k.name }}</option>
-        </select>
-      </label>
-      <label class="field grow">
-        按 session id 前缀过滤
-        <input
-          v-model="query"
-          name="trace-query"
-          type="text"
-          autocomplete="off"
-          spellcheck="false"
-          @keyup.enter="load"
-        />
-      </label>
-      <button class="primary" type="button" @click="load">查询</button>
-    </div>
     <p class="hint">
       跨会话入口。列表不含轮次数(推断轮次需逐会话比对,成本随会话数放大)。轮次数在轨迹视图给出。
     </p>
@@ -296,6 +361,10 @@ onBeforeUnmount(() => {
 .grow {
   max-width: 320px;
   flex: 1;
+}
+
+.time-filter {
+  max-width: 160px;
 }
 
 .key-filter {

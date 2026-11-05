@@ -13,27 +13,49 @@ const aggregateRequestsSince = `-- name: AggregateRequestsSince :one
 SELECT
     COUNT(*) AS count,
     CAST(COALESCE(SUM(CASE WHEN status_code >= 400 OR error_kind <> '' THEN 1 ELSE 0 END), 0) AS INTEGER) AS errors,
+    CAST(COALESCE(SUM(CASE WHEN status_code BETWEEN 400 AND 499 THEN 1 ELSE 0 END), 0) AS INTEGER) AS errors_4xx,
+    CAST(COALESCE(SUM(CASE WHEN status_code >= 500 THEN 1 ELSE 0 END), 0) AS INTEGER) AS errors_5xx,
     CAST(COALESCE(SUM(usage_in), 0) AS INTEGER) AS usage_in,
     CAST(COALESCE(SUM(usage_out), 0) AS INTEGER) AS usage_out,
     CAST(COALESCE(SUM(usage_cache), 0) AS INTEGER) AS usage_cache
-FROM requests
-WHERE ts >= ?
+FROM requests r
+WHERE r.ts >= ?1
+  AND (?2 IS NULL OR r.client_key_id = ?2)
+  AND (
+    ?3 IS NULL
+    OR EXISTS (
+      SELECT 1
+      FROM snapshots s
+      WHERE s.request_id = r.id
+        AND substr(s.session_id, instr(s.session_id, ':') + 1) LIKE ?3 || '%'
+    )
+  )
 `
+
+type AggregateRequestsSinceParams struct {
+	Ts            string
+	KeyID         interface{}
+	SessionPrefix interface{}
+}
 
 type AggregateRequestsSinceRow struct {
 	Count      int64
 	Errors     int64
+	Errors4xx  int64
+	Errors5xx  int64
 	UsageIn    int64
 	UsageOut   int64
 	UsageCache int64
 }
 
-func (q *Queries) AggregateRequestsSince(ctx context.Context, ts string) (AggregateRequestsSinceRow, error) {
-	row := q.db.QueryRowContext(ctx, aggregateRequestsSince, ts)
+func (q *Queries) AggregateRequestsSince(ctx context.Context, arg AggregateRequestsSinceParams) (AggregateRequestsSinceRow, error) {
+	row := q.db.QueryRowContext(ctx, aggregateRequestsSince, arg.Ts, arg.KeyID, arg.SessionPrefix)
 	var i AggregateRequestsSinceRow
 	err := row.Scan(
 		&i.Count,
 		&i.Errors,
+		&i.Errors4xx,
+		&i.Errors5xx,
 		&i.UsageIn,
 		&i.UsageOut,
 		&i.UsageCache,
@@ -190,12 +212,132 @@ func (q *Queries) ListRecentRequests(ctx context.Context, limit int64) ([]Reques
 	return items, nil
 }
 
-const listRequestLatenciesSince = `-- name: ListRequestLatenciesSince :many
-SELECT latency_ms FROM requests WHERE ts >= ? ORDER BY latency_ms
+const listRequestErrorKindsSince = `-- name: ListRequestErrorKindsSince :many
+SELECT COALESCE(r.error_kind, '') AS kind, COUNT(*) AS count
+FROM requests r
+WHERE r.ts >= ?1
+  AND (?2 IS NULL OR r.client_key_id = ?2)
+  AND (
+    ?3 IS NULL
+    OR EXISTS (
+      SELECT 1
+      FROM snapshots s
+      WHERE s.request_id = r.id
+        AND substr(s.session_id, instr(s.session_id, ':') + 1) LIKE ?3 || '%'
+    )
+  )
+  AND (r.status_code >= 400 OR r.error_kind <> '')
+GROUP BY COALESCE(r.error_kind, '')
+ORDER BY count DESC, kind
 `
 
-func (q *Queries) ListRequestLatenciesSince(ctx context.Context, ts string) ([]int64, error) {
-	rows, err := q.db.QueryContext(ctx, listRequestLatenciesSince, ts)
+type ListRequestErrorKindsSinceParams struct {
+	Ts            string
+	KeyID         interface{}
+	SessionPrefix interface{}
+}
+
+type ListRequestErrorKindsSinceRow struct {
+	Kind  string
+	Count int64
+}
+
+func (q *Queries) ListRequestErrorKindsSince(ctx context.Context, arg ListRequestErrorKindsSinceParams) ([]ListRequestErrorKindsSinceRow, error) {
+	rows, err := q.db.QueryContext(ctx, listRequestErrorKindsSince, arg.Ts, arg.KeyID, arg.SessionPrefix)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListRequestErrorKindsSinceRow{}
+	for rows.Next() {
+		var i ListRequestErrorKindsSinceRow
+		if err := rows.Scan(&i.Kind, &i.Count); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRequestLatenciesSince = `-- name: ListRequestLatenciesSince :many
+SELECT r.latency_ms
+FROM requests r
+WHERE r.ts >= ?1
+  AND (?2 IS NULL OR r.client_key_id = ?2)
+  AND (
+    ?3 IS NULL
+    OR EXISTS (
+      SELECT 1
+      FROM snapshots s
+      WHERE s.request_id = r.id
+        AND substr(s.session_id, instr(s.session_id, ':') + 1) LIKE ?3 || '%'
+    )
+  )
+ORDER BY r.latency_ms
+`
+
+type ListRequestLatenciesSinceParams struct {
+	Ts            string
+	KeyID         interface{}
+	SessionPrefix interface{}
+}
+
+func (q *Queries) ListRequestLatenciesSince(ctx context.Context, arg ListRequestLatenciesSinceParams) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listRequestLatenciesSince, arg.Ts, arg.KeyID, arg.SessionPrefix)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var latency_ms int64
+		if err := rows.Scan(&latency_ms); err != nil {
+			return nil, err
+		}
+		items = append(items, latency_ms)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSuccessfulRequestLatenciesSince = `-- name: ListSuccessfulRequestLatenciesSince :many
+SELECT r.latency_ms
+FROM requests r
+WHERE r.ts >= ?1
+  AND (?2 IS NULL OR r.client_key_id = ?2)
+  AND (
+    ?3 IS NULL
+    OR EXISTS (
+      SELECT 1
+      FROM snapshots s
+      WHERE s.request_id = r.id
+        AND substr(s.session_id, instr(s.session_id, ':') + 1) LIKE ?3 || '%'
+    )
+  )
+  AND r.status_code < 400
+  AND (r.error_kind IS NULL OR r.error_kind = '')
+ORDER BY r.latency_ms
+`
+
+type ListSuccessfulRequestLatenciesSinceParams struct {
+	Ts            string
+	KeyID         interface{}
+	SessionPrefix interface{}
+}
+
+func (q *Queries) ListSuccessfulRequestLatenciesSince(ctx context.Context, arg ListSuccessfulRequestLatenciesSinceParams) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listSuccessfulRequestLatenciesSince, arg.Ts, arg.KeyID, arg.SessionPrefix)
 	if err != nil {
 		return nil, err
 	}

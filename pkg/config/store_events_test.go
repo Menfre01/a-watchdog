@@ -119,7 +119,7 @@ func TestStore_AggregateRequestsSince(t *testing.T) {
 		t.Fatalf("InsertRequests() error = %v", err)
 	}
 
-	row, err := s.AggregateRequestsSince(ctx, "2026-10-13T00:00:00Z")
+	row, err := s.AggregateRequestsSince(ctx, "2026-10-13T00:00:00Z", nil, "")
 	if err != nil {
 		t.Fatalf("AggregateRequestsSince() error = %v", err)
 	}
@@ -131,7 +131,7 @@ func TestStore_AggregateRequestsSince(t *testing.T) {
 	}
 
 	// 空窗口:聚合值为 0,不报错。
-	row, err = s.AggregateRequestsSince(ctx, "2026-10-14T00:00:00Z")
+	row, err = s.AggregateRequestsSince(ctx, "2026-10-14T00:00:00Z", nil, "")
 	if err != nil {
 		t.Fatalf("AggregateRequestsSince(empty) error = %v", err)
 	}
@@ -140,14 +140,14 @@ func TestStore_AggregateRequestsSince(t *testing.T) {
 	}
 
 	// 延迟序列:仅窗口内,且升序(分位数计算依赖有序输入)。
-	lat, err := s.ListRequestLatenciesSince(ctx, "2026-10-13T00:00:00Z")
+	lat, err := s.ListRequestLatenciesSince(ctx, "2026-10-13T00:00:00Z", nil, "")
 	if err != nil {
 		t.Fatalf("ListRequestLatenciesSince() error = %v", err)
 	}
 	if len(lat) != 2 || lat[0] != 10 || lat[1] != 30 {
 		t.Fatalf("延迟序列 = %v, want [10 30]", lat)
 	}
-	lat, err = s.ListRequestLatenciesSince(ctx, "2026-10-14T00:00:00Z")
+	lat, err = s.ListRequestLatenciesSince(ctx, "2026-10-14T00:00:00Z", nil, "")
 	if err != nil || len(lat) != 0 {
 		t.Fatalf("空窗口延迟 = %v, %v; want 空", lat, err)
 	}
@@ -288,5 +288,146 @@ func TestStore_PromptEvents(t *testing.T) {
 	// 未知会话返回空而非报错。
 	if empty, err := s.ListPromptEvents(ctx, "9:none"); err != nil || len(empty) != 0 {
 		t.Fatalf("未知会话 = %v, %v; want 空", empty, err)
+	}
+}
+
+// TestStore_AggregateRequestsSinceFilters 覆盖 key 与 session 前缀过滤。
+// 无快照请求只在 key 过滤时保留,session 过滤必须排除。
+func TestStore_AggregateRequestsSinceFilters(t *testing.T) {
+	s := openTraceStore(t)
+	ctx := context.Background()
+	keyA, keyB := int64(1), int64(2)
+	ts := "2026-10-13T09:00:00Z"
+	reqs := []db.InsertRequestParams{
+		{Ts: ts, ClientKeyID: &keyA, ClientKeyName: "a", Protocol: "anthropic-messages", StatusCode: 200, LatencyMs: 10},
+		{Ts: ts, ClientKeyID: &keyA, ClientKeyName: "a", Protocol: "anthropic-messages", StatusCode: 200, LatencyMs: 20},
+		{Ts: ts, ClientKeyID: &keyB, ClientKeyName: "b", Protocol: "anthropic-messages", StatusCode: 200, LatencyMs: 30},
+		{Ts: ts, ClientKeyID: &keyA, ClientKeyName: "a", Protocol: "anthropic-messages", StatusCode: 500, LatencyMs: 40},
+	}
+	ids, err := s.InsertRequests(ctx, reqs)
+	if err != nil {
+		t.Fatalf("InsertRequests() error = %v", err)
+	}
+	// 前三条有快照;第四条没有快照,只在 key 过滤中可见。
+	for i, sessionID := range []string{"1:alpha-1", "1:alpha-2", "2:beta-1"} {
+		insertTraceSnapshot(t, s, ids[i], sessionID, 1, ts)
+	}
+
+	since := "2026-10-13T00:00:00Z"
+	cases := []struct {
+		name      string
+		keyID     *int64
+		prefix    string
+		wantCount int64
+		wantLat   []int64
+	}{
+		{"全部", nil, "", 4, []int64{10, 20, 30, 40}},
+		{"仅 key", &keyA, "", 3, []int64{10, 20, 40}},
+		{"仅 session 前缀", nil, "alpha", 2, []int64{10, 20}},
+		{"key 与 session 叠加", &keyA, "alpha", 2, []int64{10, 20}},
+		{"key 不匹配", &keyB, "alpha", 0, nil},
+		{"session 不匹配", &keyA, "beta", 0, nil},
+		{"另一 key", &keyB, "beta", 1, []int64{30}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			row, err := s.AggregateRequestsSince(ctx, since, tc.keyID, tc.prefix)
+			if err != nil {
+				t.Fatalf("AggregateRequestsSince() error = %v", err)
+			}
+			if row.Count != tc.wantCount {
+				t.Fatalf("count = %d, want %d", row.Count, tc.wantCount)
+			}
+			lat, err := s.ListRequestLatenciesSince(ctx, since, tc.keyID, tc.prefix)
+			if err != nil {
+				t.Fatalf("ListRequestLatenciesSince() error = %v", err)
+			}
+			if len(lat) != len(tc.wantLat) {
+				t.Fatalf("latencies = %v, want %v", lat, tc.wantLat)
+			}
+			for i, want := range tc.wantLat {
+				if lat[i] != want {
+					t.Fatalf("latencies = %v, want %v", lat, tc.wantLat)
+				}
+			}
+		})
+	}
+}
+
+// TestStore_ErrorKindsAndSuccessLatencies 覆盖错误原因分组与成功请求延迟,
+// 并确认两者沿用 key 与 session 过滤。
+func TestStore_ErrorKindsAndSuccessLatencies(t *testing.T) {
+	s := openTraceStore(t)
+	ctx := context.Background()
+	keyA, keyB := int64(1), int64(2)
+	ts := "2026-10-13T09:00:00Z"
+	reqs := []db.InsertRequestParams{
+		{Ts: ts, ClientKeyID: &keyA, ClientKeyName: "a", Protocol: "anthropic-messages", StatusCode: 200, LatencyMs: 10},
+		{Ts: ts, ClientKeyID: &keyA, ClientKeyName: "a", Protocol: "anthropic-messages", StatusCode: 404, LatencyMs: 20, ErrorKind: strPtr("model_not_found")},
+		{Ts: ts, ClientKeyID: &keyB, ClientKeyName: "b", Protocol: "anthropic-messages", StatusCode: 500, LatencyMs: 30},
+		{Ts: ts, ClientKeyID: &keyB, ClientKeyName: "b", Protocol: "anthropic-messages", StatusCode: 200, LatencyMs: 40, ErrorKind: strPtr("stream_interrupted")},
+		{Ts: ts, ClientKeyID: &keyA, ClientKeyName: "a", Protocol: "anthropic-messages", StatusCode: 200, LatencyMs: 50},
+	}
+	ids, err := s.InsertRequests(ctx, reqs)
+	if err != nil {
+		t.Fatalf("InsertRequests() error = %v", err)
+	}
+	for i, sessionID := range []string{"1:alpha", "1:alpha", "2:beta", "2:beta"} {
+		insertTraceSnapshot(t, s, ids[i], sessionID, 1, ts)
+	}
+
+	since := "2026-10-13T00:00:00Z"
+	cases := []struct {
+		name        string
+		keyID       *int64
+		prefix      string
+		want4xx     int64
+		want5xx     int64
+		wantKinds   map[string]int64
+		wantSuccess []int64
+	}{
+		{"全部", nil, "", 1, 1, map[string]int64{"": 1, "model_not_found": 1, "stream_interrupted": 1}, []int64{10, 50}},
+		{"仅 key", &keyA, "", 1, 0, map[string]int64{"model_not_found": 1}, []int64{10, 50}},
+		{"仅 session", nil, "alpha", 1, 0, map[string]int64{"model_not_found": 1}, []int64{10}},
+		{"key 与 session 叠加", &keyA, "alpha", 1, 0, map[string]int64{"model_not_found": 1}, []int64{10}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			agg, err := s.AggregateRequestsSince(ctx, since, tc.keyID, tc.prefix)
+			if err != nil {
+				t.Fatalf("AggregateRequestsSince() error = %v", err)
+			}
+			if agg.Errors4xx != tc.want4xx || agg.Errors5xx != tc.want5xx {
+				t.Fatalf("4xx/5xx = %d/%d, want %d/%d", agg.Errors4xx, agg.Errors5xx, tc.want4xx, tc.want5xx)
+			}
+			kinds, err := s.ListRequestErrorKindsSince(ctx, since, tc.keyID, tc.prefix)
+			if err != nil {
+				t.Fatalf("ListRequestErrorKindsSince() error = %v", err)
+			}
+			gotKinds := make(map[string]int64, len(kinds))
+			for _, row := range kinds {
+				gotKinds[row.Kind] = row.Count
+			}
+			if len(gotKinds) != len(tc.wantKinds) {
+				t.Fatalf("错误原因 = %v, want %v", gotKinds, tc.wantKinds)
+			}
+			for kind, want := range tc.wantKinds {
+				if gotKinds[kind] != want {
+					t.Fatalf("错误原因 = %v, want %v", gotKinds, tc.wantKinds)
+				}
+			}
+			lat, err := s.ListSuccessfulRequestLatenciesSince(ctx, since, tc.keyID, tc.prefix)
+			if err != nil {
+				t.Fatalf("ListSuccessfulRequestLatenciesSince() error = %v", err)
+			}
+			if len(lat) != len(tc.wantSuccess) {
+				t.Fatalf("成功延迟 = %v, want %v", lat, tc.wantSuccess)
+			}
+			for i, want := range tc.wantSuccess {
+				if lat[i] != want {
+					t.Fatalf("成功延迟 = %v, want %v", lat, tc.wantSuccess)
+				}
+			}
+		})
 	}
 }

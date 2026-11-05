@@ -430,6 +430,7 @@ func TestRecorder_WritesSnapshot(t *testing.T) {
 	snap := fs.lastSnapshot()
 	if snap == nil {
 		t.Fatal("未生成快照")
+		return
 	}
 	if snap.SessionID != "7:sess-1" || snap.SessionSource != "explicit" {
 		t.Errorf("会话归属 = %q/%q, want 7:sess-1/explicit", snap.SessionID, snap.SessionSource)

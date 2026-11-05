@@ -30,11 +30,19 @@ func TestStore_ClosedErrors_Extended(t *testing.T) {
 		}},
 		{"ResponseBody", func() error { _, err := s.ResponseBody(ctx, 1); return err }},
 		{"AggregateRequestsSince", func() error {
-			_, err := s.AggregateRequestsSince(ctx, "2026-01-01T00:00:00Z")
+			_, err := s.AggregateRequestsSince(ctx, "2026-01-01T00:00:00Z", nil, "")
 			return err
 		}},
 		{"ListRequestLatenciesSince", func() error {
-			_, err := s.ListRequestLatenciesSince(ctx, "2026-01-01T00:00:00Z")
+			_, err := s.ListRequestLatenciesSince(ctx, "2026-01-01T00:00:00Z", nil, "")
+			return err
+		}},
+		{"ListRequestErrorKindsSince", func() error {
+			_, err := s.ListRequestErrorKindsSince(ctx, "2026-01-01T00:00:00Z", nil, "")
+			return err
+		}},
+		{"ListSuccessfulRequestLatenciesSince", func() error {
+			_, err := s.ListSuccessfulRequestLatenciesSince(ctx, "2026-01-01T00:00:00Z", nil, "")
 			return err
 		}},
 		{"InsertToolEvent", func() error {
