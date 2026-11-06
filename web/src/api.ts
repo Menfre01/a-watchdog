@@ -208,6 +208,29 @@ export interface TracePromptEvent {
   ts: string
 }
 
+export interface TraceToolCallSummary {
+  tool_call_id: string
+  tool_name: string
+  issued_seq: number
+  result_seq: number
+  source: 'local' | 'mcp'
+  status: string
+  started_at: string
+  duration_ms?: number
+  approval_wait: boolean
+  complete: boolean
+  input_preview: string
+}
+
+export interface TraceToolCallDetail extends TraceToolCallSummary {
+  finished_at?: string
+  boundary?: string
+  input?: unknown
+  result?: unknown
+  input_truncated?: boolean
+  result_truncated?: boolean
+}
+
 export interface TraceToolCallDuration {
   tool_call_id: string
   // input/result 是客户端上报值;缺失时由轨迹复原值兜底。

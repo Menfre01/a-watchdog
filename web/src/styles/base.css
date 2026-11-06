@@ -138,6 +138,11 @@ td {
   vertical-align: middle;
 }
 
+/* 数值列表头与右对齐的数值同向 */
+th.num-head {
+  text-align: right;
+}
+
 /* 类型列只放图标:窄列,颜色随元数据 */
 .type-col {
   width: 30px;

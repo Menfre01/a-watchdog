@@ -83,6 +83,8 @@ func (a *Admin) Handler() http.Handler {
 	mux.HandleFunc("GET /console/api/traces", a.guard(a.handleListTraces))
 	mux.HandleFunc("GET /console/api/traces/{session_id}", a.guard(a.handleTraceDetail))
 	mux.HandleFunc("GET /console/api/traces/{session_id}/digest", a.guard(a.handleTraceDigest))
+	mux.HandleFunc("GET /console/api/traces/{session_id}/tool-calls", a.guard(a.handleListToolCalls))
+	mux.HandleFunc("GET /console/api/traces/{session_id}/tool-calls/{tool_call_id}", a.guard(a.handleToolCallDetail))
 	mux.HandleFunc("GET /console/api/traces/{session_id}/{seq}", a.guard(a.handleTraceStep))
 	mux.HandleFunc("GET /console/api/tool-events", a.guard(a.handleListToolEvents))
 	mux.HandleFunc("GET /console/api/metrics", a.guard(a.handleRequestMetrics))

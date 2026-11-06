@@ -394,11 +394,6 @@ onBeforeUnmount(() => {
   font-size: var(--fs-13);
 }
 
-/* 数值列表头与右对齐的数值同向,避免表头在左、数字在右 */
-th.num-head {
-  text-align: right;
-}
-
 /* Agent 标签降为元数据:图标负责识别,文字保持中性 */
 .agent-label {
   display: inline-flex;

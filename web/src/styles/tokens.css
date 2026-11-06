@@ -32,6 +32,12 @@
   --agent-codex-soft: rgb(79 195 176 / 16%);
   --agent-dsh: #7d9cff;
   --agent-dsh-soft: rgb(125 156 255 / 16%);
+  --chart-1: #5686fe;
+  --chart-2: #4fc3b0;
+  --chart-3: #e08a52;
+  --chart-4: #a78bfa;
+  --chart-5: #38bdf8;
+  --chart-6: #f59e0b;
   --code-bg: #1b1b1c;
   --backdrop: rgb(0 0 0 / 50%);
   --shadow: 0 6px 20px rgb(0 0 0 / 45%);
@@ -94,6 +100,12 @@ html[data-theme='light'] {
   --agent-codex-soft: #e3f5f2;
   --agent-dsh: #3457c4;
   --agent-dsh-soft: #e8eefe;
+  --chart-1: #4176e6;
+  --chart-2: #147d70;
+  --chart-3: #b4612c;
+  --chart-4: #6d28d9;
+  --chart-5: #0284c7;
+  --chart-6: #dd8629;
   --code-bg: #f5f6f7;
   --backdrop: rgb(0 0 0 / 24%);
   --shadow: 0 6px 20px rgb(0 0 0 / 12%);

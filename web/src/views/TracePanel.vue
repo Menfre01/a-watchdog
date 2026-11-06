@@ -218,6 +218,22 @@ function resetViewState() {
   autoOpened.value = []
 }
 
+// stepFromHash 读取从工具视图带入的目标 step。
+function stepFromHash(): number | null {
+  const hash = window.location.hash
+  const query = hash.indexOf('?')
+  if (query < 0) return null
+  const seq = Number.parseInt(new URLSearchParams(hash.slice(query + 1)).get('step') ?? '', 10)
+  return Number.isFinite(seq) && seq > 0 ? seq : null
+}
+
+// focusFromHash 在骨架到达后定位外部链接指定的 step。
+async function focusFromHash(): Promise<void> {
+  const seq = stepFromHash()
+  if (seq === null || !skeleton.value) return
+  await jumpTo(seq)
+}
+
 // load 先取骨架(指纹级,含判定理由),再取 digest(标题与工具聚合,需解析各步新增行)。
 // 骨架先渲染,digest 到达后填充——对应 spec 的渐进填充。
 async function load() {
@@ -233,6 +249,10 @@ async function load() {
     error.value = e instanceof Error ? e.message : String(e)
   } finally {
     loading.value = false
+  }
+  if (!error.value) {
+    await nextTick()
+    await focusFromHash()
   }
 }
 
