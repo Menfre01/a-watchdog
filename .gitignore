@@ -3,11 +3,24 @@
 .env.*
 !.env.example
 
-# macOS
+# 系统与编辑器
 .DS_Store
+._*
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+.fleet/
+.zed/
 
-# Go
+# Go 与测试产物
 coverage.out
+coverage.html
+coverage.txt
+coverage.json
 *.test
 *.out
 
@@ -21,10 +34,17 @@ dist/
 pkg/admin/dist/*
 !pkg/admin/dist/placeholder.txt
 
-# 前端依赖(如有)
+# 前端依赖与缓存
 node_modules/
-# pnpm 本地包缓存(可能落在仓库根,约数十 MB)
 .pnpm-store/
+.vite/
+.turbo/
+.cache/
+*.tsbuildinfo
+.eslintcache
+npm-debug.log*
+pnpm-debug.log*
+yarn-error.log*
 
 # Python(scripts/ 辅助脚本的字节码缓存)
 __pycache__/
@@ -33,12 +53,25 @@ __pycache__/
 # 运行时数据文件(SQLite;--data-dir 指到仓库内时产生)
 .awatchdog/
 *.db
+*.db-journal
 *.db-wal
 *.db-shm
+*.sqlite
+*.sqlite3
 
-# IDE
-.vscode/
-.idea/
+# 日志与临时文件
+*.log
+logs/
+tmp/
+temp/
+*.tmp
+
+# 本地密钥与证书
+.secrets/
+*.key
+*.pem
+*.p12
+*.pfx
 
 # Waveloom(本地配置/日志/会话)
 .waveloom/
